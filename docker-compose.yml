@@ -1,0 +1,13 @@
+services:
+  react-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stiqrhub-health-frontend
+    restart: unless-stopped
+    networks:
+      - stiqrhub-network
+
+networks:
+  stiqrhub-network:
+    external: true
