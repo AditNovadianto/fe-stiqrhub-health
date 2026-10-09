@@ -12,11 +12,16 @@ import ResetPasswordCustomer from './pages/customers/ResetPassword.tsx'
 import ForgotPasswordProvider from './pages/providers/ForgotPassword.tsx'
 import ResetPasswordProvider from './pages/providers/ResetPassword.tsx'
 import SignIn from './pages/providers/SignIn.tsx'
+import DetailService from './components/customers/DetailService.tsx'
+import Home from './components/customers/Home.tsx'
+import History from './components/customers/History.tsx'
+import HealthPasses from './components/customers/HealthPasses.tsx'
+import Profile from './components/customers/Profile.tsx'
 
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <Navigate to="/customer/sign-in" replace />,
+    element: <Navigate to="/customer/home" replace />,
   },
   {
     path: "/customer",
@@ -38,8 +43,29 @@ const router = createBrowserRouter([
         element: <ResetPasswordCustomer />,
       },
       {
-        path: "dashboard",
         element: <DashboardCustomer />,
+        children: [
+          {
+            path: "home",
+            element: <Home />,
+          },
+          {
+            path: "service/:id_service",
+            element: <DetailService />,
+          },
+          {
+            path: "history",
+            element: <History />,
+          },
+          {
+            path: "health-pass",
+            element: <HealthPasses />,
+          },
+          {
+            path: "profile",
+            element: <Profile />,
+          },
+        ],
       },
     ]
   },

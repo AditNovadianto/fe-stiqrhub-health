@@ -91,7 +91,7 @@ const SignIn = () => {
 
             console.log("Sign In successful:", result);
 
-            navigate("/customer/dashboard");
+            navigate("/customer/home");
         } catch (err) {
             console.error("Sign in error:", err);
 
