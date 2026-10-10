@@ -496,7 +496,7 @@ const Dashboard = () => {
                                 onClick={() =>
                                     setShowLogoutModal(false)
                                 }
-                                className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                                className="cursor-pointer flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
                             >
                                 Batal
                             </button>
@@ -504,7 +504,7 @@ const Dashboard = () => {
                             <button
                                 type="button"
                                 onClick={handleLogout}
-                                className="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700"
+                                className="cursor-pointer flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700"
                             >
                                 Ya, Keluar
                             </button>

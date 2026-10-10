@@ -689,7 +689,7 @@ const ScanHealthPasses = () => {
                             type="button"
                             onClick={() => setErrorMessage("")}
                             aria-label="Tutup pesan error"
-                            className="text-red-500"
+                            className="cursor-pointer text-red-500"
                         >
                             <X size={18} />
                         </button>
@@ -1000,7 +1000,7 @@ const ScanHealthPasses = () => {
                                         onClick={handleReset}
                                         disabled={busy}
                                         aria-label="Tutup modal"
-                                        className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500 disabled:opacity-50"
+                                        className="cursor-pointer flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500 disabled:opacity-50"
                                     >
                                         <X size={19} />
                                     </button>
@@ -1097,7 +1097,7 @@ const ScanHealthPasses = () => {
                                         type="button"
                                         onClick={handleReset}
                                         disabled={busy}
-                                        className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                                        className="cursor-pointer rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
                                     >
                                         Periksa Ulang
                                     </button>
@@ -1108,7 +1108,7 @@ const ScanHealthPasses = () => {
                                             void handleRedeem()
                                         }
                                         disabled={busy}
-                                        className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-50"
+                                        className="cursor-pointer flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-50"
                                     >
                                         {status === "REDEEMING" ? (
                                             <>

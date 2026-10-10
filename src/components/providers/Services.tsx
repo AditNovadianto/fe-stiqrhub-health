@@ -440,7 +440,7 @@ const ServiceFormModal = ({
                         onClick={onClose}
                         disabled={processing}
                         aria-label="Tutup form layanan"
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+                        className="cursor-pointer flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-slate-500 hover:bg-slate-100 disabled:opacity-50"
                     >
                         <X size={19} />
                     </button>
@@ -627,7 +627,7 @@ const ServiceFormModal = ({
                                                 : "ACTIVE"
                                         )
                                     }
-                                    className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition disabled:opacity-50 ${form.status_service === "ACTIVE"
+                                    className={`cursor-pointer relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition disabled:opacity-50 ${form.status_service === "ACTIVE"
                                         ? "bg-blue-600"
                                         : "bg-slate-300"
                                         }`}
@@ -787,7 +787,7 @@ const ServiceFormModal = ({
                             type="button"
                             onClick={onClose}
                             disabled={processing}
-                            className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                            className="cursor-pointer rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                         >
                             Batal
                         </button>
@@ -795,7 +795,7 @@ const ServiceFormModal = ({
                         <button
                             type="submit"
                             disabled={processing || Boolean(imageError)}
-                            className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+                            className="cursor-pointer flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
                         >
                             {processing ? (
                                 <Loader2
@@ -894,7 +894,7 @@ const StatusToggle = ({
         aria-label={`Ubah status layanan ${name}`}
         onClick={onToggle}
         disabled={disabled || loading}
-        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition disabled:opacity-60 ${active ? "bg-blue-600" : "bg-slate-300"
+        className={`cursor-pointer relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition disabled:opacity-60 ${active ? "bg-blue-600" : "bg-slate-300"
             }`}
     >
         <span
@@ -937,7 +937,7 @@ const ActionButton = ({
         aria-label={title}
         disabled={disabled}
         onClick={onClick}
-        className={`rounded-lg border p-2.5 transition disabled:opacity-50 ${danger
+        className={`cursor-pointer rounded-lg border p-2.5 transition disabled:opacity-50 ${danger
             ? "border-red-100 text-red-600 hover:bg-red-50"
             : "border-blue-100 text-blue-600 hover:bg-blue-50"
             }`}
@@ -1512,7 +1512,7 @@ const Services = () => {
                             type="button"
                             onClick={refresh}
                             disabled={loading}
-                            className="flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                            className="cursor-pointer flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50"
                         >
                             <RefreshCw
                                 size={17}
@@ -1525,7 +1525,7 @@ const Services = () => {
                             type="button"
                             onClick={openCreate}
                             disabled={!providerId || processing}
-                            className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+                            className="cursor-pointer flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
                         >
                             <Plus size={18} />
                             Tambah Layanan
@@ -1547,6 +1547,7 @@ const Services = () => {
                             type="button"
                             aria-label="Tutup notifikasi"
                             onClick={() => setSuccessMessage("")}
+                            className="cursor-pointer"
                         >
                             <X size={17} />
                         </button>
@@ -1566,6 +1567,7 @@ const Services = () => {
                             type="button"
                             aria-label="Tutup error"
                             onClick={() => setErrorMessage("")}
+                            className="cursor-pointer"
                         >
                             <X size={17} />
                         </button>
@@ -1666,7 +1668,7 @@ const Services = () => {
                                         key={value}
                                         type="button"
                                         onClick={() => setFilter(value)}
-                                        className={`shrink-0 rounded-xl border px-4 py-2 text-xs font-bold ${filter === value
+                                        className={`cursor-pointer shrink-0 rounded-xl border px-4 py-2 text-xs font-bold ${filter === value
                                             ? "border-blue-600 bg-blue-600 text-white"
                                             : "border-slate-200 text-slate-500 hover:border-blue-300"
                                             }`}
@@ -1951,7 +1953,7 @@ const Services = () => {
                                 type="button"
                                 onClick={() => setDeleteService(null)}
                                 disabled={processing}
-                                className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold"
+                                className="cursor-pointer flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold"
                             >
                                 Batal
                             </button>
@@ -1960,7 +1962,7 @@ const Services = () => {
                                 type="button"
                                 onClick={() => void handleDelete()}
                                 disabled={processing}
-                                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+                                className="cursor-pointer flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
                             >
                                 {processing && (
                                     <Loader2 size={17} className="animate-spin" />

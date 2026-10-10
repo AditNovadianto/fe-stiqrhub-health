@@ -858,7 +858,7 @@ const Transactions = () => {
                                                             onClick={() =>
                                                                 setSelectedOrderId(order.id_order)
                                                             }
-                                                            className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-2 text-xs font-bold text-blue-600 transition hover:bg-blue-50"
+                                                            className="cursor-pointer inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-2 text-xs font-bold text-blue-600 transition hover:bg-blue-50"
                                                         >
                                                             <Eye size={15} />
                                                             Detail

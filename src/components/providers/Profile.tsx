@@ -1133,7 +1133,7 @@ const Profile = () => {
                             <button
                                 type="button"
                                 onClick={() => setLogoutModal(false)}
-                                className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600"
+                                className="cursor-pointer flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600"
                             >
                                 Batal
                             </button>
@@ -1141,7 +1141,7 @@ const Profile = () => {
                             <button
                                 type="button"
                                 onClick={handleLogout}
-                                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white hover:bg-red-700"
+                                className="cursor-pointer flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white hover:bg-red-700"
                             >
                                 <LogOut size={17} />
                                 Ya, Logout
