@@ -87,7 +87,7 @@ const Dashboard = () => {
                                 {/* CHAT CS */}
                                 <button
                                     type="button"
-                                    className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                                    className="cursor-pointer flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
                                 >
                                     <MessageCircle size={16} />
 
@@ -105,7 +105,7 @@ const Dashboard = () => {
                                         }
                                         aria-label="Toggle menu"
                                         aria-expanded={menuOpen}
-                                        className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
+                                        className="cursor-pointer flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
                                     >
                                         <Menu size={20} />
                                     </button>
@@ -120,7 +120,7 @@ const Dashboard = () => {
                                                         "/customer/profile"
                                                     );
                                                 }}
-                                                className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                                className="cursor-pointer w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                                             >
                                                 Profile
                                             </button>
@@ -133,7 +133,7 @@ const Dashboard = () => {
                                                         "/customer/history"
                                                     );
                                                 }}
-                                                className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                                className="cursor-pointer w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                                             >
                                                 Riwayat
                                             </button>
@@ -150,7 +150,7 @@ const Dashboard = () => {
                                 type="button"
                                 onClick={() => navigate(-1)}
                                 aria-label="Kembali"
-                                className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+                                className="cursor-pointer flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition hover:bg-slate-200"
                             >
                                 <ArrowLeft size={20} />
                             </button>
@@ -193,7 +193,7 @@ const Dashboard = () => {
                         onClick={() =>
                             navigate("/customer/home")
                         }
-                        className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 transition ${isActive("/customer/home")
+                        className={`cursor-pointer flex flex-1 flex-col items-center justify-center gap-1 py-1 transition ${isActive("/customer/home")
                             ? "text-blue-600"
                             : "text-slate-400 hover:text-slate-600"
                             }`}
@@ -213,7 +213,7 @@ const Dashboard = () => {
                                 "/customer/history"
                             )
                         }
-                        className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 transition ${isActive("/customer/history")
+                        className={`cursor-pointer flex flex-1 flex-col items-center justify-center gap-1 py-1 transition ${isActive("/customer/history")
                             ? "text-blue-600"
                             : "text-slate-400 hover:text-slate-600"
                             }`}
@@ -233,7 +233,7 @@ const Dashboard = () => {
                                 "/customer/health-pass"
                             )
                         }
-                        className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 transition ${isActive("/customer/health-pass")
+                        className={`cursor-pointer flex flex-1 flex-col items-center justify-center gap-1 py-1 transition ${isActive("/customer/health-pass")
                             ? "text-blue-600"
                             : "text-slate-400 hover:text-slate-600"
                             }`}
@@ -253,7 +253,7 @@ const Dashboard = () => {
                                 "/customer/profile"
                             )
                         }
-                        className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 transition ${isActive("/customer/profile")
+                        className={`cursor-pointer flex flex-1 flex-col items-center justify-center gap-1 py-1 transition ${isActive("/customer/profile")
                             ? "text-blue-600"
                             : "text-slate-400 hover:text-slate-600"
                             }`}

@@ -344,7 +344,7 @@ const Home = () => {
                             <button
                                 type="button"
                                 onClick={handleSeeServices}
-                                className="mt-4 rounded-xl bg-white px-4 py-2 text-xs font-bold text-blue-600 shadow-sm transition hover:bg-blue-50"
+                                className="cursor-pointer mt-4 rounded-xl bg-white px-4 py-2 text-xs font-bold text-blue-600 shadow-sm transition hover:bg-blue-50"
                             >
                                 Lihat Layanan
                             </button>
@@ -402,7 +402,7 @@ const Home = () => {
                                     aria-pressed={
                                         selectedCategory === null
                                     }
-                                    className={`rounded-2xl border p-3 text-center transition ${selectedCategory === null
+                                    className={`cursor-pointer rounded-2xl border p-3 text-center transition ${selectedCategory === null
                                         ? "border-blue-500 bg-blue-50"
                                         : "border-slate-100 bg-white hover:border-blue-200"
                                         }`}
@@ -439,7 +439,7 @@ const Home = () => {
                                                 )
                                             }
                                             aria-pressed={active}
-                                            className={`rounded-2xl border p-3 text-center transition ${active
+                                            className={`cursor-pointer rounded-2xl border p-3 text-center transition ${active
                                                 ? "border-blue-500 bg-blue-50"
                                                 : "border-slate-100 bg-white hover:border-blue-200"
                                                 }`}
@@ -607,7 +607,7 @@ const Home = () => {
                                                     service.id_service
                                                 )
                                             }
-                                            className="relative block h-48 w-full overflow-hidden bg-slate-100 text-left"
+                                            className="cursor-pointer relative block h-48 w-full overflow-hidden bg-slate-100 text-left"
                                         >
                                             <img
                                                 src={
@@ -636,7 +636,6 @@ const Home = () => {
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="min-w-0 flex-1">
                                                     {/* NAME */}
-
                                                     <button
                                                         type="button"
                                                         onClick={() =>
@@ -709,7 +708,7 @@ const Home = () => {
                                                             service.id_service
                                                         )
                                                     }
-                                                    className="flex-1 rounded-xl border border-blue-500 px-4 py-3 text-sm font-bold text-blue-600 transition hover:bg-blue-50"
+                                                    className="cursor-pointer flex-1 rounded-xl border border-blue-500 px-4 py-3 text-sm font-bold text-blue-600 transition hover:bg-blue-50"
                                                 >
                                                     Detail
                                                 </button>
@@ -722,7 +721,7 @@ const Home = () => {
                                                             service.id_service
                                                         )
                                                     }
-                                                    className="flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
+                                                    className="cursor-pointer flex-1 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
                                                 >
                                                     Book
                                                 </button>

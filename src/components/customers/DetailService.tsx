@@ -400,7 +400,7 @@ const DetailService = () => {
                     onClick={() =>
                         navigate("/customer/home")
                     }
-                    className="mt-6 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                    className="cursor-pointer mt-6 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
                 >
                     Kembali ke Beranda
                 </button>
@@ -763,7 +763,7 @@ const DetailService = () => {
                         type="button"
                         onClick={handleBooking}
                         disabled={!canBook}
-                        className={`flex min-h-12 items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold transition sm:px-8 ${canBook
+                        className={`cursor-pointer flex min-h-12 items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold transition sm:px-8 ${canBook
                             ? "bg-blue-600 text-white shadow-lg shadow-blue-200 hover:bg-blue-700"
                             : "cursor-not-allowed bg-slate-200 text-slate-400"
                             }`}

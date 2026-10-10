@@ -238,7 +238,7 @@ const Profile = () => {
                         disabled={refreshing}
                         title="Refresh Profil"
                         aria-label="Refresh Profil"
-                        className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm transition hover:bg-blue-50 disabled:opacity-50"
+                        className="cursor-pointer flex h-11 w-11 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm transition hover:bg-blue-50 disabled:opacity-50"
                     >
                         <RefreshCw
                             size={19}
@@ -385,7 +385,7 @@ const Profile = () => {
                             onClick={() =>
                                 navigate("/customer/history")
                             }
-                            className="flex w-full items-center gap-3 border-b border-slate-100 p-4 text-left transition hover:bg-slate-50"
+                            className="cursor-pointer flex w-full items-center gap-3 border-b border-slate-100 p-4 text-left transition hover:bg-slate-50"
                         >
                             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                                 <History size={21} />
@@ -413,7 +413,7 @@ const Profile = () => {
                             onClick={() =>
                                 navigate("/customer/health-pass")
                             }
-                            className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-slate-50"
+                            className="cursor-pointer flex w-full items-center gap-3 p-4 text-left transition hover:bg-slate-50"
                         >
                             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                                 <Ticket size={21} />
@@ -480,7 +480,7 @@ const Profile = () => {
                         onClick={() =>
                             setShowLogoutModal(true)
                         }
-                        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-4 text-sm font-bold text-red-600 transition hover:bg-red-50"
+                        className="cursor-pointer flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-4 text-sm font-bold text-red-600 transition hover:bg-red-50"
                     >
                         <LogOut size={19} />
                         Keluar dari Akun
@@ -521,7 +521,7 @@ const Profile = () => {
                                     setShowLogoutModal(false)
                                 }
                                 aria-label="Tutup konfirmasi"
-                                className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500"
+                                className="cursor-pointer flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500"
                             >
                                 <X size={19} />
                             </button>
@@ -547,7 +547,7 @@ const Profile = () => {
                                 onClick={() =>
                                     setShowLogoutModal(false)
                                 }
-                                className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                                className="cursor-pointer flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
                             >
                                 Batal
                             </button>
@@ -555,7 +555,7 @@ const Profile = () => {
                             <button
                                 type="button"
                                 onClick={handleLogout}
-                                className="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700"
+                                className="cursor-pointer flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700"
                             >
                                 Ya, Keluar
                             </button>

@@ -438,7 +438,7 @@ const History = () => {
                         onClick={handleRefresh}
                         disabled={loading}
                         aria-label="Refresh riwayat"
-                        className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-100 disabled:opacity-50"
+                        className="cursor-pointer flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-100 disabled:opacity-50"
                     >
                         <RefreshCw
                             size={18}
@@ -483,7 +483,7 @@ const History = () => {
                                     setSelectedFilter(filter.value)
                                 }
                                 aria-pressed={active}
-                                className={`shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ${active
+                                className={`cursor-pointer shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ${active
                                     ? "border-blue-600 bg-blue-600 text-white"
                                     : "border-slate-200 bg-white text-slate-500 hover:border-blue-300"
                                     }`}
@@ -768,7 +768,7 @@ const History = () => {
                                                             `/customer/service/${order.id_service}`
                                                         )
                                                     }
-                                                    className="flex items-center gap-1 rounded-xl border border-blue-500 px-3 py-2.5 text-xs font-bold text-blue-600 transition hover:bg-blue-50"
+                                                    className="cursor-pointer flex items-center gap-1 rounded-xl border border-blue-500 px-3 py-2.5 text-xs font-bold text-blue-600 transition hover:bg-blue-50"
                                                 >
                                                     Lihat Layanan
                                                     <ChevronRight

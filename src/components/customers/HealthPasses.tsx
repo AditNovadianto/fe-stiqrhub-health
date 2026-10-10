@@ -782,7 +782,7 @@ const HealthPasses = () => {
                         }
                         aria-label="Refresh Health Pass"
                         title="Refresh Health Pass"
-                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="cursor-pointer flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         <RefreshCw
                             size={19}
@@ -817,7 +817,7 @@ const HealthPasses = () => {
                                     aria-pressed={
                                         active
                                     }
-                                    className={`shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ${active
+                                    className={`cursor-pointer shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ${active
                                         ? "border-blue-600 bg-blue-600 text-white"
                                         : "border-slate-200 bg-white text-slate-500 hover:border-blue-300"
                                         }`}
@@ -1135,7 +1135,7 @@ const HealthPasses = () => {
                                                     disabled={
                                                         !canOpen
                                                     }
-                                                    className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition ${canOpen
+                                                    className={`cursor-pointer mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition ${canOpen
                                                         ? "bg-blue-600 text-white hover:bg-blue-700"
                                                         : "cursor-not-allowed bg-slate-100 text-slate-400"
                                                         }`}
@@ -1225,7 +1225,7 @@ const HealthPasses = () => {
                                     refreshingQR
                                 }
                                 aria-label="Tutup QR Code"
-                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 disabled:opacity-50"
+                                className="cursor-pointer flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 disabled:opacity-50"
                             >
                                 <X
                                     size={20}
@@ -1310,7 +1310,7 @@ const HealthPasses = () => {
                             disabled={
                                 refreshingQR
                             }
-                            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-600 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="cursor-pointer mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-600 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             <RefreshCw
                                 size={18}
@@ -1423,7 +1423,7 @@ const HealthPasses = () => {
                             disabled={
                                 refreshingQR
                             }
-                            className="mt-5 w-full rounded-xl border border-slate-200 py-3 text-sm font-semibold text-slate-700 disabled:opacity-50"
+                            className="cursor-pointer mt-5 w-full rounded-xl border border-slate-200 py-3 text-sm font-semibold text-slate-700 disabled:opacity-50"
                         >
                             Tutup
                         </button>
