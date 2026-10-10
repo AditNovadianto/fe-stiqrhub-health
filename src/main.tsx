@@ -13,10 +13,18 @@ import ForgotPasswordProvider from './pages/providers/ForgotPassword.tsx'
 import ResetPasswordProvider from './pages/providers/ResetPassword.tsx'
 import SignIn from './pages/providers/SignIn.tsx'
 import DetailService from './components/customers/DetailService.tsx'
-import Home from './components/customers/Home.tsx'
+import HomeCustomer from './components/customers/Home.tsx'
 import History from './components/customers/History.tsx'
 import HealthPasses from './components/customers/HealthPasses.tsx'
-import Profile from './components/customers/Profile.tsx'
+import ProfileCustomer from './components/customers/Profile.tsx'
+import NotFound from './pages/NotFound.tsx'
+import HomeProvider from './components/providers/Home.tsx'
+import ScanHealthPasses from './components/providers/ScanHealthPasses.tsx'
+import Transactions from './components/providers/Transactions.tsx'
+import Redemptions from './components/providers/Redemptions.tsx'
+import Settlement from './components/providers/Settlement.tsx'
+import Services from './components/providers/Services.tsx'
+import ProfileProvider from './components/providers/Profile.tsx'
 
 const router = createBrowserRouter([
   {
@@ -47,7 +55,7 @@ const router = createBrowserRouter([
         children: [
           {
             path: "home",
-            element: <Home />,
+            element: <HomeCustomer />,
           },
           {
             path: "service/:id_service",
@@ -63,7 +71,7 @@ const router = createBrowserRouter([
           },
           {
             path: "profile",
-            element: <Profile />,
+            element: <ProfileCustomer />,
           },
         ],
       },
@@ -89,11 +97,44 @@ const router = createBrowserRouter([
         element: <ResetPasswordProvider />,
       },
       {
-        path: "dashboard",
         element: <DashboardProvider />,
+        children: [
+          {
+            path: "dashboard",
+            element: <HomeProvider />,
+          },
+          {
+            path: "scan-health-pass",
+            element: <ScanHealthPasses />,
+          },
+          {
+            path: "transactions",
+            element: <Transactions />,
+          },
+          {
+            path: "redemptions",
+            element: <Redemptions />,
+          },
+          {
+            path: "settlement",
+            element: <Settlement />,
+          },
+          {
+            path: "services",
+            element: <Services />,
+          },
+          {
+            path: "profile",
+            element: <ProfileProvider />,
+          }
+        ]
       },
     ]
-  }
+  },
+  {
+    path: "*",
+    element: <NotFound />,
+  },
 ], {
   future: {
     v7_startTransition: true,
