@@ -25,6 +25,7 @@ import Redemptions from './components/providers/Redemptions.tsx'
 import Settlement from './components/providers/Settlement.tsx'
 import Services from './components/providers/Services.tsx'
 import ProfileProvider from './components/providers/Profile.tsx'
+import Booking from './components/customers/Booking.tsx'
 
 const router = createBrowserRouter([
   {
@@ -60,6 +61,10 @@ const router = createBrowserRouter([
           {
             path: "service/:id_service",
             element: <DetailService />,
+          },
+          {
+            path: "booking/:id_service",
+            element: <Booking />,
           },
           {
             path: "history",

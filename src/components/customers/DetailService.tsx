@@ -1,19 +1,18 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-
 import {
-    MapPin,
-    Clock3,
-    CheckCircle2,
-    ShieldCheck,
+    AlertCircle,
+    ArrowLeft,
     Building2,
     CalendarDays,
-    Users,
-    FileText,
-    AlertCircle,
-    Loader2,
+    CheckCircle2,
     ChevronRight,
+    Clock3,
+    FileText,
+    Loader2,
+    MapPin,
+    ShieldCheck,
+    Users,
 } from "lucide-react";
 
 import { isTokenExpired } from "../../utils/auth";
@@ -39,8 +38,6 @@ interface DetailServiceData {
     terms_and_conditions: string | null;
     included_services: string | null;
     id_service: number;
-    name_service?: string;
-    id_provider?: number;
 }
 
 interface ApiResponse<T> {
@@ -49,9 +46,7 @@ interface ApiResponse<T> {
     message?: string;
 }
 
-const formatRupiah = (
-    value: string | number
-): string => {
+const formatRupiah = (value: string | number): string => {
     const amount = Number(value);
 
     if (!Number.isFinite(amount)) {
@@ -65,54 +60,43 @@ const formatRupiah = (
     }).format(amount);
 };
 
-// Mengubah string comma-separated menjadi array
-const parseList = (
-    value?: string | null
-): string[] => {
+const parseList = (value?: string | null): string[] => {
     if (!value) return [];
 
     return value
-        .split(",")
+        .split(/[,\n]+/)
         .map((item) => item.trim())
         .filter(Boolean);
 };
 
-// Mendukung response object maupun array
 const getFirstItem = <T,>(
-    data: T | T[] | null | undefined
+    data: T | T[] | null | undefined,
 ): T | null => {
     if (data == null) return null;
 
-    if (Array.isArray(data)) {
-        return data[0] ?? null;
-    }
-
-    return data;
+    return Array.isArray(data)
+        ? data[0] ?? null
+        : data;
 };
 
-// Generic API request
 const fetchApi = async <T,>(
     endpoint: string,
-    signal: AbortSignal
+    signal: AbortSignal,
 ): Promise<T | T[]> => {
-    const response = await fetch(
-        `${import.meta.env.VITE_API_URI}${endpoint}`,
-        {
-            method: "GET",
-            headers: {
-                Accept: "application/json",
-            },
-            signal,
-        }
-    );
+    const response = await fetch(`${import.meta.env.VITE_API_URI}${endpoint}`, {
+        method: "GET",
+        headers: {
+            Accept: "application/json",
+        },
+        signal,
+    });
 
-    const result =
-        (await response.json()) as ApiResponse<T>;
+    const result = (await response.json()) as ApiResponse<T>;
 
     if (!response.ok || !result.success) {
         throw new Error(
             result.message ||
-            `Request gagal (${response.status})`
+            `Request gagal (${response.status})`,
         );
     }
 
@@ -137,19 +121,17 @@ const DetailService = () => {
         Number.isSafeInteger(serviceId) &&
         serviceId > 0;
 
-    const [service, setService] =
-        useState<Service | null>(null);
+    const [service, setService] = useState<Service | null>(
+        null,
+    );
 
-    const [detailServices, setDetailServices] =
-        useState<DetailServiceData[]>([]);
+    const [detailServices, setDetailServices] = useState<
+        DetailServiceData[]
+    >([]);
 
     const [loading, setLoading] = useState(true);
-
-    const [errorMessage, setErrorMessage] =
-        useState("");
-
-    const [detailError, setDetailError] =
-        useState("");
+    const [errorMessage, setErrorMessage] = useState("");
+    const [detailError, setDetailError] = useState("");
 
     useEffect(() => {
         const controller = new AbortController();
@@ -162,90 +144,70 @@ const DetailService = () => {
             setDetailServices([]);
 
             if (!validServiceId) {
-                setErrorMessage(
-                    "ID layanan tidak valid."
-                );
+                setErrorMessage("ID layanan tidak valid.");
                 setLoading(false);
                 return;
             }
 
             try {
-                const serviceData =
-                    await fetchApi<Service>(
-                        `/service/${serviceId}`,
-                        controller.signal
-                    );
+                const serviceData = await fetchApi<Service>(
+                    `/service/${serviceId}`,
+                    controller.signal,
+                );
 
                 if (controller.signal.aborted) return;
 
-                const selectedService =
-                    getFirstItem(serviceData);
+                const selectedService = getFirstItem(serviceData);
 
                 if (!selectedService) {
-                    throw new Error(
-                        "Layanan tidak ditemukan."
-                    );
+                    throw new Error("Layanan tidak ditemukan.");
                 }
 
                 if (
-                    Number(selectedService.id_service) !==
-                    serviceId
+                    Number(selectedService.id_service) !== serviceId
                 ) {
-                    throw new Error(
-                        "Data layanan tidak sesuai."
-                    );
+                    throw new Error("Data layanan tidak sesuai.");
                 }
 
                 setService(selectedService);
 
+                // Detail tambahan tidak menggagalkan
+                // keseluruhan halaman bila tidak tersedia.
                 try {
                     const detailData =
                         await fetchApi<DetailServiceData>(
                             `/detail-service/service/${serviceId}`,
-                            controller.signal
+                            controller.signal,
                         );
 
                     if (controller.signal.aborted) return;
 
-                    const details =
-                        Array.isArray(detailData)
-                            ? detailData
-                            : [detailData];
+                    const details = Array.isArray(detailData)
+                        ? detailData
+                        : [detailData];
 
-                    const matchingDetails =
+                    setDetailServices(
                         details.filter(
                             (detail) =>
-                                Number(detail.id_service) ===
-                                serviceId
-                        );
-
-                    setDetailServices(matchingDetails);
+                                Number(detail.id_service) === serviceId,
+                        ),
+                    );
                 } catch (error) {
                     if (controller.signal.aborted) return;
-
-                    console.error(
-                        "[DETAIL SERVICE ERROR]",
-                        error
-                    );
 
                     setDetailError(
                         error instanceof Error
                             ? error.message
-                            : "Informasi tambahan layanan belum tersedia."
+                            : "Informasi tambahan layanan belum tersedia.",
                     );
                 }
             } catch (error) {
                 if (controller.signal.aborted) return;
 
-                console.error(
-                    "[SERVICE ERROR]",
-                    error
-                );
-
                 setErrorMessage(
                     error instanceof Error
                         ? error.message
-                        : "Gagal mengambil layanan."
+                        : "Gagal mengambil detail layanan.",
                 );
             } finally {
                 if (!controller.signal.aborted) {
@@ -256,105 +218,76 @@ const DetailService = () => {
 
         void fetchServiceDetail();
 
-        return () => {
-            controller.abort();
-        };
+        return () => controller.abort();
     }, [serviceId, validServiceId]);
 
-    const benefits = [
-        ...new Set(
-            detailServices.flatMap((detail) =>
-                parseList(detail.benefits)
-            )
-        ),
-    ];
+    const getUniqueItems = (
+        field:
+            | "benefits"
+            | "included_services"
+            | "terms_and_conditions",
+    ): string[] => {
+        return [
+            ...new Set(
+                detailServices.flatMap((detail) =>
+                    parseList(detail[field]),
+                ),
+            ),
+        ];
+    };
 
-    const includedServices = [
-        ...new Set(
-            detailServices.flatMap((detail) =>
-                parseList(detail.included_services)
-            )
-        ),
-    ];
+    const benefits = getUniqueItems("benefits");
 
-    const termsAndConditions = [
-        ...new Set(
-            detailServices.flatMap((detail) =>
-                parseList(
-                    detail.terms_and_conditions
-                )
-            )
-        ),
-    ];
+    const includedServices =
+        getUniqueItems("included_services");
+
+    const termsAndConditions =
+        getUniqueItems("terms_and_conditions");
 
     const locations = [
         ...new Set(
-            detailServices
-                .map((detail) =>
-                    detail.location?.trim()
-                )
-                .filter(
-                    (value): value is string =>
-                        Boolean(value)
-                )
+            detailServices.flatMap((detail) =>
+                parseList(detail.location),
+            ),
         ),
     ];
 
     const hours = [
         ...new Set(
-            detailServices
-                .map((detail) =>
-                    detail.hour?.trim()
-                )
-                .filter(
-                    (value): value is string =>
-                        Boolean(value)
-                )
+            detailServices.flatMap((detail) =>
+                parseList(detail.hour),
+            ),
         ),
     ];
 
-    const quota = Number(
-        service?.quota_service ?? 0
-    );
+    const quota = Number(service?.quota_service ?? 0);
 
     const isActive =
         service?.status_service === "ACTIVE";
 
     const hasQuota =
-        Number.isFinite(quota) &&
-        quota > 0;
+        Number.isFinite(quota) && quota > 0;
 
-    const canBook =
-        isActive && hasQuota;
+    const canBook = isActive && hasQuota;
 
     const handleBooking = () => {
         if (!service || !canBook) return;
 
-        const token =
-            sessionStorage.getItem(
-                "customer_token"
-            );
-
-        // Route booking disiapkan untuk integrasi order.
         const bookingPath =
             `/customer/booking/${service.id_service}`;
 
-        if (
-            !token ||
-            isTokenExpired(token)
-        ) {
-            sessionStorage.removeItem(
-                "customer_token"
-            );
+        const token = sessionStorage.getItem(
+            "customer_token",
+        );
 
-            localStorage.removeItem(
-                "customer_data"
-            );
+        if (!token || isTokenExpired(token)) {
+            sessionStorage.removeItem("customer_token");
+            localStorage.removeItem("customer_data");
 
             navigate(
                 `/customer/sign-in?redirect=${encodeURIComponent(
-                    bookingPath
-                )}`
+                    bookingPath,
+                )}`,
             );
 
             return;
@@ -365,7 +298,7 @@ const DetailService = () => {
 
     if (loading) {
         return (
-            <div className="flex min-h-[65vh] flex-col items-center justify-center gap-4 bg-white px-5">
+            <div className="flex min-h-[65vh] flex-col items-center justify-center gap-4 bg-slate-50 px-5">
                 <Loader2
                     size={34}
                     className="animate-spin text-blue-600"
@@ -380,27 +313,25 @@ const DetailService = () => {
 
     if (errorMessage || !service) {
         return (
-            <div className="flex min-h-[65vh] flex-col items-center justify-center px-5 text-center">
+            <div className="flex min-h-[65vh] flex-col items-center justify-center bg-slate-50 px-5 text-center">
                 <AlertCircle
                     size={48}
                     className="text-red-400"
                 />
 
-                <h2 className="mt-4 text-lg font-bold text-slate-800">
+                <h2 className="mt-4 text-xl font-bold text-slate-900">
                     Layanan Tidak Ditemukan
                 </h2>
 
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 max-w-md text-sm text-slate-500">
                     {errorMessage ||
                         "Layanan yang Anda cari tidak tersedia."}
                 </p>
 
                 <button
                     type="button"
-                    onClick={() =>
-                        navigate("/customer/home")
-                    }
-                    className="cursor-pointer mt-6 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                    onClick={() => navigate("/customer/home")}
+                    className="mt-6 cursor-pointer rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
                 >
                     Kembali ke Beranda
                 </button>
@@ -409,352 +340,321 @@ const DetailService = () => {
     }
 
     return (
-        <div className="min-h-[60vh] bg-slate-50 pb-40">
-            <section className="bg-white">
-                <div className="relative h-64 w-full overflow-hidden bg-slate-100 sm:h-80">
-                    {service.image_service ? (
-                        <img
-                            src={
-                                service.image_service
-                            }
-                            alt={
-                                service.name_service
-                            }
-                            className="h-full w-full object-cover"
-                        />
-                    ) : (
-                        <div className="flex h-full items-center justify-center text-6xl">
-                            🏥
-                        </div>
-                    )}
+        <div className="min-h-screen bg-slate-50 pb-40 text-slate-900">
+            <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+                {/* BACK BUTTON */}
+                <button
+                    type="button"
+                    onClick={() => navigate(-1)}
+                    className="mb-5 flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-blue-600"
+                >
+                    <ArrowLeft size={18} />
+                    Kembali
+                </button>
 
-                    {/* STATUS BADGE */}
-                    <div className="absolute bottom-4 left-5">
-                        <span
-                            className={`rounded-full px-4 py-2 text-xs font-bold shadow-sm ${isActive
-                                ? "bg-emerald-500 text-white"
-                                : "bg-red-500 text-white"
-                                }`}
-                        >
-                            {isActive
-                                ? "Layanan Aktif"
-                                : "Tidak Tersedia"}
-                        </span>
-                    </div>
-                </div>
+                <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
+                    {/* SERVICE IMAGE */}
+                    <div className="relative h-56 overflow-hidden bg-blue-50 sm:h-80">
+                        {service.image_service ? (
+                            <img
+                                src={service.image_service}
+                                alt={service.name_service}
+                                className="h-full w-full object-cover"
+                            />
+                        ) : (
+                            <div className="flex h-full items-center justify-center text-sm font-medium text-blue-500">
+                                Foto layanan dari provider
+                            </div>
+                        )}
 
-                <div className="px-5 py-6">
-                    <h2 className="text-2xl font-extrabold leading-tight text-slate-900">
-                        {service.name_service}
-                    </h2>
-
-                    {/* PROVIDER */}
-                    {service.name_provider && (
-                        <div className="mt-3 flex items-center gap-2 text-sm font-medium text-blue-600">
-                            <Building2 size={17} />
-
-                            <span>
-                                {
-                                    service.name_provider
-                                }
+                        {/* STATUS BADGE */}
+                        <div className="absolute bottom-4 left-4">
+                            <span
+                                className={`rounded-full px-4 py-2 text-xs font-bold shadow-sm ${canBook
+                                    ? "bg-emerald-500 text-white"
+                                    : "bg-red-500 text-white"
+                                    }`}
+                            >
+                                {canBook
+                                    ? "Layanan Tersedia"
+                                    : "Tidak Tersedia"}
                             </span>
                         </div>
-                    )}
-
-                    {/* PRICE */}
-                    <div className="mt-5 rounded-2xl bg-blue-50 p-4">
-                        <p className="text-xs font-medium text-blue-500">
-                            Harga Layanan
-                        </p>
-
-                        <p className="mt-1 text-2xl font-extrabold text-blue-700">
-                            {formatRupiah(
-                                service.price_service
-                            )}
-                        </p>
                     </div>
 
-                    {/* SERVICE META */}
-                    <div className="mt-5 grid grid-cols-2 gap-3">
-                        {/* QUOTA */}
-                        <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
-                                <Users size={20} />
-                            </div>
-
-                            <div>
-                                <p className="text-[11px] text-slate-500">
-                                    Kuota
-                                </p>
-
-                                <p className="text-sm font-bold text-slate-800">
-                                    {
-                                        service.quota_service
-                                    }
-                                </p>
-                            </div>
+                    {/* SERVICE HEADER */}
+                    <div className="p-5 sm:p-8">
+                        {/* PROVIDER */}
+                        <div className="flex items-center gap-2 text-sm font-medium text-blue-600">
+                            <Building2 size={17} />
+                            <span>
+                                {service.name_provider ||
+                                    "Provider kesehatan"}
+                            </span>
                         </div>
 
-                        {/* STATUS */}
-                        <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                                <CalendarDays
-                                    size={20}
-                                />
+                        {/* SERVICE NAME */}
+                        <h1 className="mt-3 text-2xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-3xl">
+                            {service.name_service}
+                        </h1>
+
+                        {/* QUOTA & SCHEDULE */}
+                        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                            <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                                    <Users size={21} />
+                                </div>
+
+                                <div>
+                                    <p className="text-xs text-slate-500">
+                                        Kuota Tersedia
+                                    </p>
+
+                                    <p className="mt-1 text-sm font-bold text-slate-800">
+                                        {Number.isFinite(quota)
+                                            ? quota
+                                            : "-"}
+                                    </p>
+                                </div>
                             </div>
 
-                            <div>
-                                <p className="text-[11px] text-slate-500">
-                                    Status
-                                </p>
+                            <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                                    <CalendarDays size={21} />
+                                </div>
 
-                                <p className="text-sm font-bold text-slate-800">
-                                    {isActive
-                                        ? "Tersedia"
-                                        : "Tidak Aktif"}
-                                </p>
+                                <div>
+                                    <p className="text-xs text-slate-500">
+                                        Jadwal Pelayanan
+                                    </p>
+
+                                    <p className="mt-1 text-sm font-bold text-slate-800">
+                                        Pilih saat booking
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <section className="mt-3 bg-white px-5 py-6">
-                <h3 className="text-lg font-extrabold text-slate-900">
-                    Tentang Layanan
-                </h3>
+                <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                    {/* ABOUT SERVICE */}
+                    <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+                        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                            <ShieldCheck
+                                size={20}
+                                className="text-blue-600"
+                            />
+                            Tentang Layanan
+                        </h2>
 
-                <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-600">
-                    {service.description_service ||
-                        "Belum ada deskripsi untuk layanan ini."}
-                </p>
-            </section>
+                        <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-600">
+                            {service.description_service ||
+                                "Deskripsi layanan belum tersedia."}
+                        </p>
 
-            {benefits.length > 0 && (
-                <section className="mt-3 bg-white px-5 py-6">
-                    <div className="flex items-center gap-2">
-                        <ShieldCheck
-                            size={21}
-                            className="text-blue-600"
-                        />
+                        {/* BENEFITS */}
+                        {benefits.length > 0 && (
+                            <div className="mt-6">
+                                <h3 className="text-sm font-bold text-slate-800">
+                                    Manfaat Layanan
+                                </h3>
 
-                        <h3 className="text-lg font-extrabold text-slate-900">
-                            Manfaat Layanan
-                        </h3>
-                    </div>
+                                <ul className="mt-3 space-y-3">
+                                    {benefits.map((benefit) => (
+                                        <li
+                                            key={benefit}
+                                            className="flex items-start gap-3 text-sm text-slate-600"
+                                        >
+                                            <CheckCircle2
+                                                size={18}
+                                                className="mt-0.5 shrink-0 text-emerald-500"
+                                            />
 
-                    <div className="mt-5 space-y-4">
-                        {benefits.map(
-                            (benefit, index) => (
+                                            <span>{benefit}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </section>
+
+                    {/* INCLUDED SERVICES */}
+                    <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+                        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                            <CheckCircle2
+                                size={20}
+                                className="text-blue-600"
+                            />
+                            Termasuk dalam Layanan
+                        </h2>
+
+                        {includedServices.length > 0 ? (
+                            <ul className="mt-4 space-y-3">
+                                {includedServices.map((included) => (
+                                    <li
+                                        key={included}
+                                        className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"
+                                    >
+                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                                            <CheckCircle2 size={17} />
+                                        </div>
+
+                                        <span className="text-sm font-medium text-slate-700">
+                                            {included}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="mt-3 text-sm text-slate-500">
+                                Rincian layanan belum tersedia.
+                            </p>
+                        )}
+                    </section>
+
+                    {/* LOCATION & HOURS */}
+                    <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+                        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                            <MapPin
+                                size={20}
+                                className="text-blue-600"
+                            />
+                            Lokasi & Jam Operasional
+                        </h2>
+
+                        <div className="mt-4 space-y-4">
+                            {locations.length === 0 &&
+                                hours.length === 0 && (
+                                    <p className="text-sm text-slate-500">
+                                        Informasi lokasi dan jam operasional belum tersedia.
+                                    </p>
+                                )}
+
+                            {locations.map((location) => (
                                 <div
-                                    key={`${benefit}-${index}`}
+                                    key={location}
                                     className="flex items-start gap-3"
                                 >
-                                    <CheckCircle2
-                                        size={19}
-                                        className="mt-0.5 shrink-0 text-emerald-500"
-                                    />
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                                        <MapPin size={19} />
+                                    </div>
 
-                                    <p className="text-sm leading-6 text-slate-600">
-                                        {benefit}
-                                    </p>
+                                    <div>
+                                        <p className="text-xs text-slate-400">
+                                            Lokasi Pelayanan
+                                        </p>
+
+                                        <p className="mt-1 text-sm font-semibold text-slate-700">
+                                            {location}
+                                        </p>
+                                    </div>
                                 </div>
-                            )
-                        )}
-                    </div>
-                </section>
-            )}
+                            ))}
 
-            {includedServices.length > 0 && (
-                <section className="mt-3 bg-white px-5 py-6">
-                    <div className="flex items-center gap-2">
-                        <CheckCircle2
-                            size={21}
-                            className="text-blue-600"
-                        />
-
-                        <h3 className="text-lg font-extrabold text-slate-900">
-                            Termasuk dalam Layanan
-                        </h3>
-                    </div>
-
-                    <div className="mt-5 space-y-3">
-                        {includedServices.map(
-                            (included, index) => (
+                            {hours.map((hour) => (
                                 <div
-                                    key={`${included}-${index}`}
-                                    className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"
+                                    key={hour}
+                                    className="flex items-start gap-3"
                                 >
-                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                                        <CheckCircle2
-                                            size={17}
-                                        />
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
+                                        <Clock3 size={19} />
                                     </div>
 
-                                    <p className="text-sm font-medium text-slate-700">
-                                        {included}
-                                    </p>
+                                    <div>
+                                        <p className="text-xs text-slate-400">
+                                            Jam Operasional
+                                        </p>
+
+                                        <p className="mt-1 text-sm font-semibold text-slate-700">
+                                            {hour}
+                                        </p>
+                                    </div>
                                 </div>
-                            )
-                        )}
-                    </div>
-                </section>
-            )}
-
-            {(locations.length > 0 ||
-                hours.length > 0 ||
-                Boolean(service.maps_service)) && (
-                    <section className="mt-3 bg-white px-5 py-6">
-                        <h3 className="text-lg font-extrabold text-slate-900">
-                            Lokasi & Jam Operasional
-                        </h3>
-
-                        <div className="mt-5 space-y-5">
-                            {/* LOCATIONS */}
-                            {locations.map(
-                                (location, index) => (
-                                    <div
-                                        key={`${location}-${index}`}
-                                        className="flex items-start gap-3"
-                                    >
-                                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                                            <MapPin
-                                                size={21}
-                                            />
-                                        </div>
-
-                                        <div className="pt-1">
-                                            <p className="text-xs font-medium text-slate-400">
-                                                Lokasi Pelayanan
-                                            </p>
-
-                                            <p className="mt-1 text-sm font-semibold text-slate-800">
-                                                {
-                                                    location
-                                                }
-                                            </p>
-                                        </div>
-                                    </div>
-                                )
-                            )}
-
-                            {/* OPERATIONAL HOURS */}
-                            {hours.map(
-                                (hour, index) => (
-                                    <div
-                                        key={`${hour}-${index}`}
-                                        className="flex items-start gap-3"
-                                    >
-                                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
-                                            <Clock3
-                                                size={21}
-                                            />
-                                        </div>
-
-                                        <div className="pt-1">
-                                            <p className="text-xs font-medium text-slate-400">
-                                                Jam Operasional
-                                            </p>
-
-                                            <p className="mt-1 text-sm font-semibold text-slate-800">
-                                                {
-                                                    hour
-                                                }
-                                            </p>
-                                        </div>
-                                    </div>
-                                )
-                            )}
+                            ))}
 
                             {/* GOOGLE MAPS */}
                             {service.maps_service &&
                                 /^https?:\/\//i.test(
-                                    service.maps_service
+                                    service.maps_service,
                                 ) && (
                                     <a
-                                        href={
-                                            service.maps_service
-                                        }
+                                        href={service.maps_service}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm font-semibold text-blue-600 transition hover:bg-blue-100"
                                     >
                                         <span className="flex items-center gap-2">
-                                            <MapPin
-                                                size={18}
-                                            />
-
+                                            <MapPin size={17} />
                                             Lihat Lokasi di Maps
                                         </span>
 
-                                        <ChevronRight
-                                            size={18}
-                                        />
+                                        <ChevronRight size={17} />
                                     </a>
                                 )}
                         </div>
                     </section>
-                )}
 
-            {termsAndConditions.length > 0 && (
-                <section className="mt-3 bg-white px-5 py-6">
-                    <div className="flex items-center gap-2">
-                        <FileText
-                            size={21}
-                            className="text-blue-600"
+                    {/* TERMS & CONDITIONS */}
+                    <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
+                        <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                            <FileText
+                                size={20}
+                                className="text-blue-600"
+                            />
+                            Syarat & Ketentuan
+                        </h2>
+
+                        {termsAndConditions.length > 0 ? (
+                            <ol className="mt-4 space-y-3">
+                                {termsAndConditions.map((term, index) => (
+                                    <li
+                                        key={`${term}-${index}`}
+                                        className="flex items-start gap-3"
+                                    >
+                                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-600">
+                                            {index + 1}
+                                        </div>
+
+                                        <p className="text-sm leading-6 text-slate-600">
+                                            {term}
+                                        </p>
+                                    </li>
+                                ))}
+                            </ol>
+                        ) : (
+                            <p className="mt-3 text-sm text-slate-500">
+                                Belum ada ketentuan tambahan.
+                            </p>
+                        )}
+                    </section>
+                </div>
+
+                {/* DETAIL WARNING */}
+                {detailError && (
+                    <div className="mt-5 flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 p-4">
+                        <AlertCircle
+                            size={19}
+                            className="shrink-0 text-amber-600"
                         />
 
-                        <h3 className="text-lg font-extrabold text-slate-900">
-                            Syarat & Ketentuan
-                        </h3>
+                        <p className="text-sm text-amber-700">
+                            Informasi tambahan layanan: {detailError}
+                        </p>
                     </div>
-
-                    <div className="mt-5 space-y-4">
-                        {termsAndConditions.map(
-                            (term, index) => (
-                                <div
-                                    key={`${term}-${index}`}
-                                    className="flex items-start gap-3"
-                                >
-                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-600">
-                                        {index + 1}
-                                    </div>
-
-                                    <p className="text-sm leading-6 text-slate-600">
-                                        {term}
-                                    </p>
-                                </div>
-                            )
-                        )}
-                    </div>
-                </section>
-            )}
-
-            {detailError && (
-                <div className="mx-5 mt-4 flex items-start gap-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-700">
-                    <AlertCircle
-                        size={19}
-                        className="shrink-0"
-                    />
-
-                    <p>
-                        {detailError}
-                    </p>
-                </div>
-            )}
+                )}
+            </div>
 
             <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] left-1/2 z-40 w-full max-w-130 -translate-x-1/2 border-t border-slate-100 bg-white px-5 py-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
                 <div className="flex items-center justify-between gap-4">
-                    {/* PRICE SUMMARY */}
+                    {/* PRICE */}
                     <div className="min-w-0">
                         <p className="text-xs text-slate-500">
                             Total Harga
                         </p>
 
                         <p className="text-lg font-extrabold text-blue-600 sm:text-xl">
-                            {formatRupiah(
-                                service.price_service
-                            )}
+                            {formatRupiah(service.price_service)}
                         </p>
                     </div>
 
@@ -763,23 +663,19 @@ const DetailService = () => {
                         type="button"
                         onClick={handleBooking}
                         disabled={!canBook}
-                        className={`cursor-pointer flex min-h-12 items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold transition sm:px-8 ${canBook
+                        className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-bold transition sm:px-8 ${canBook
                             ? "bg-blue-600 text-white shadow-lg shadow-blue-200 hover:bg-blue-700"
                             : "cursor-not-allowed bg-slate-200 text-slate-400"
                             }`}
                     >
-                        <CalendarDays
-                            size={18}
-                        />
+                        <CalendarDays size={18} />
 
                         {canBook
                             ? "Booking Sekarang"
                             : "Tidak Tersedia"}
 
                         {canBook && (
-                            <ChevronRight
-                                size={17}
-                            />
+                            <ChevronRight size={17} />
                         )}
                     </button>
                 </div>
