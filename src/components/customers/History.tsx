@@ -14,6 +14,7 @@ import {
     Loader2,
     RefreshCw,
     Package,
+    Building2,
 } from "lucide-react";
 
 import { isTokenExpired } from "../../utils/auth";
@@ -663,7 +664,14 @@ const History = () => {
                                                         {order.name_service}
                                                     </h3>
 
-                                                    <p className="mt-1 line-clamp-1 text-xs font-medium text-blue-600">
+                                                    <p className="mt-1 flex items-start gap-1 text-xs font-medium text-blue-600">
+                                                        <Building2
+                                                            size={
+                                                                14
+                                                            }
+                                                            className="shrink-0"
+                                                        />
+
                                                         {order.name_provider}
                                                     </p>
 

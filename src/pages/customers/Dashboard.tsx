@@ -1,12 +1,13 @@
-
 import {
     Home as HomeIcon,
     History,
     Ticket,
     User,
-    MessageCircle,
     Menu,
     ArrowLeft,
+    Loader2,
+    MapPin,
+    ChevronDown,
 } from "lucide-react";
 
 import {
@@ -14,6 +15,8 @@ import {
     useLocation,
     useNavigate,
 } from "react-router-dom";
+
+import logo from "../../images/logo-stiqrhub-health.jpeg"
 
 import { useState } from "react";
 
@@ -24,6 +27,85 @@ const Dashboard = () => {
     const location = useLocation();
 
     const [menuOpen, setMenuOpen] = useState(false);
+
+    const [userLocation, setUserLocation] = useState("Pilih lokasi");
+    const [locationLoading, setLocationLoading] = useState(false);
+    const [locationError, setLocationError] = useState("");
+
+    const handleGetLocation = () => {
+        if (!navigator.geolocation) {
+            setLocationError("Browser tidak mendukung geolocation.");
+            return;
+        }
+
+        setLocationLoading(true);
+        setLocationError("");
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude } = position.coords;
+
+                try {
+                    const baseUrl = String(
+                        import.meta.env.VITE_API_URI || ""
+                    ).replace(/\/+$/, "");
+
+                    const params = new URLSearchParams({
+                        latitude: String(latitude),
+                        longitude: String(longitude),
+                    });
+
+                    const response = await fetch(
+                        `${baseUrl}/location/reverse-geocode?${params}`,
+                        {
+                            method: "GET",
+                            headers: {
+                                Accept: "application/json",
+                            },
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error("Gagal mengambil lokasi.");
+                    }
+
+                    const result = await response.json();
+
+                    if (!result.success || !result.data) {
+                        throw new Error(
+                            result.message || "Lokasi tidak ditemukan."
+                        );
+                    }
+
+                    setUserLocation(
+                        result.data.locality ||
+                        result.data.city ||
+                        result.data.formatted_address ||
+                        "Lokasi ditemukan"
+                    );
+                } catch (error) {
+                    console.error("[LOCATION ERROR]", error);
+                    setLocationError("Gagal mengambil informasi lokasi.");
+                } finally {
+                    setLocationLoading(false);
+                }
+            },
+            (error) => {
+                setLocationLoading(false);
+
+                setLocationError(
+                    error.code === 1
+                        ? "Izin akses lokasi ditolak."
+                        : "Lokasi perangkat tidak tersedia."
+                );
+            },
+            {
+                enableHighAccuracy: false,
+                timeout: 15000,
+                maximumAge: 300000,
+            }
+        );
+    };
 
     const isHomePage =
         location.pathname === "/customer/home";
@@ -70,32 +152,65 @@ const Dashboard = () => {
                     <header className="bg-linear-to-br from-cyan-100 via-sky-100 to-blue-100 px-5 pb-5 pt-5">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-medium text-slate-600">
-                                    Layanan kesehatan cepat
-                                </p>
+                                <div className="flex items-center gap-2">
+                                    <img className="w-14" src={logo} alt="logo" />
 
-                                <h1 className="mt-1 text-2xl font-extrabold leading-tight text-slate-900">
-                                    STIQR Health
-                                </h1>
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-600">
+                                            Layanan kesehatan cepat
+                                        </p>
 
-                                <p className="mt-1 text-sm font-semibold text-slate-700">
-                                    Booking layanan kesehatan lebih mudah
-                                </p>
+                                        <h1 className="mt-1 text-2xl font-extrabold leading-tight text-slate-900">
+                                            STIQR Health
+                                        </h1>
+
+                                        <p className="mt-1 text-sm font-semibold text-slate-700">
+                                            Booking layanan kesehatan lebih mudah
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* USER LOCATION */}
+                                <div className="mt-3">
+                                    <button
+                                        type="button"
+                                        onClick={handleGetLocation}
+                                        disabled={locationLoading}
+                                        className="flex max-w-full cursor-pointer items-center gap-2 rounded-full border border-white/70 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-white disabled:cursor-wait"
+                                    >
+                                        {locationLoading ? (
+                                            <Loader2
+                                                size={15}
+                                                className="shrink-0 animate-spin text-blue-600"
+                                            />
+                                        ) : (
+                                            <MapPin
+                                                size={15}
+                                                className="shrink-0 text-blue-600"
+                                            />
+                                        )}
+
+                                        <span className="max-w-40 truncate">
+                                            {locationLoading
+                                                ? "Mendeteksi lokasi..."
+                                                : userLocation}
+                                        </span>
+
+                                        <ChevronDown
+                                            size={14}
+                                            className="shrink-0 text-slate-500"
+                                        />
+                                    </button>
+                                </div>
+
+                                {locationError && (
+                                    <p className="mt-2 max-w-xs text-xs text-red-600">
+                                        {locationError}
+                                    </p>
+                                )}
                             </div>
 
                             <div className="flex shrink-0 items-center gap-2">
-                                {/* CHAT CS */}
-                                <button
-                                    type="button"
-                                    className="cursor-pointer flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-                                >
-                                    <MessageCircle size={16} />
-
-                                    <span className="hidden sm:inline">
-                                        Chat CS
-                                    </span>
-                                </button>
-
                                 {/* MENU */}
                                 <div className="relative">
                                     <button

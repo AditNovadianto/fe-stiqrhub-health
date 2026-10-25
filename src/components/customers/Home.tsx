@@ -1,7 +1,6 @@
-
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Clock3, MapPin, Search } from "lucide-react";
+import { CheckCircle2, Clock3, MapPin, Search, ShieldCheck, Ticket, Wallet } from "lucide-react";
 import { isTokenExpired } from "../../utils/auth";
 
 interface Service {
@@ -35,7 +34,6 @@ interface ProviderCategoryResponse {
     data: ProviderCategory[];
     message?: string;
 }
-
 
 const getCategoryIcon = (name: string): string => {
     const normalized = name.trim().toLowerCase();
@@ -86,6 +84,8 @@ const Home = () => {
     const [errorMessage, setErrorMessage] = useState("");
     const [categoryError, setCategoryError] = useState("");
 
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+
     useEffect(() => {
         const token = sessionStorage.getItem("customer_token");
 
@@ -94,6 +94,45 @@ const Home = () => {
             localStorage.removeItem("customer_data");
         }
     }, []);
+
+    useEffect(() => {
+        const checkLogin = () => {
+            const token = sessionStorage.getItem(
+                "customer_token"
+            );
+
+            setIsLoggedIn(
+                Boolean(token && !isTokenExpired(token))
+            );
+        };
+
+        checkLogin();
+
+        window.addEventListener("focus", checkLogin);
+        window.addEventListener("pageshow", checkLogin);
+
+        return () => {
+            window.removeEventListener("focus", checkLogin);
+            window.removeEventListener("pageshow", checkLogin);
+        };
+    }, []);
+
+    const handleHealthPass = () => {
+        const token = sessionStorage.getItem(
+            "customer_token"
+        );
+
+        if (!token || isTokenExpired(token)) {
+            navigate(
+                "/customer/sign-in?redirect=" +
+                encodeURIComponent("/customer/health-pass")
+            );
+
+            return;
+        }
+
+        navigate("/customer/health-pass");
+    };
 
     useEffect(() => {
         const controller = new AbortController();
@@ -321,45 +360,67 @@ const Home = () => {
                     />
                 </div>
 
-                {/* HERO */}
-                <div className="mt-5 overflow-hidden rounded-3xl bg-linear-to-r from-blue-600 via-blue-500 to-cyan-400 p-5 text-white shadow-lg">
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="max-w-[65%]">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-blue-100">
-                                Promo Spesial
-                            </p>
-
-                            <h2 className="mt-2 text-2xl font-extrabold leading-tight">
-                                Layanan Kesehatan
-                                <br />
-                                Praktis untuk Anda
-                            </h2>
-
-                            <p className="mt-2 text-xs leading-relaxed text-blue-50">
-                                Booking klinik, pemeriksaan, dan
-                                layanan kesehatan hanya dalam beberapa
-                                langkah.
-                            </p>
-
-                            <button
-                                type="button"
-                                onClick={handleSeeServices}
-                                className="cursor-pointer mt-4 rounded-xl bg-white px-4 py-2 text-xs font-bold text-blue-600 shadow-sm transition hover:bg-blue-50"
-                            >
-                                Lihat Layanan
-                            </button>
+                <section className="mt-5">
+                    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                            <Ticket size={19} />
                         </div>
 
-                        <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl bg-white/15 text-5xl">
-                            🏥
-                        </div>
+                        <p className="min-w-0 flex-1 text-xs font-semibold leading-relaxed text-slate-800">
+                            {isLoggedIn
+                                ? "Lihat Health Pass terbaru kamu"
+                                : "Sudah pernah beli? Masuk untuk melihat Health Pass"}
+                        </p>
+
+                        <button
+                            type="button"
+                            onClick={handleHealthPass}
+                            className="shrink-0 cursor-pointer text-xs font-bold text-blue-600"
+                        >
+                            {isLoggedIn ? "Lihat" : "Masuk"}
+                        </button>
                     </div>
-                </div>
+                </section>
             </section>
 
             <div className="px-5 py-5">
                 <section>
-                    <div className="mb-3 flex items-center justify-between">
+                    {/* HERO */}
+                    <div className="overflow-hidden rounded-3xl bg-linear-to-r from-blue-600 via-blue-500 to-cyan-400 p-5 text-white shadow-lg">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="max-w-[65%]">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-blue-100">
+                                    Promo Spesial
+                                </p>
+
+                                <h2 className="mt-2 text-2xl font-extrabold leading-tight">
+                                    Layanan Kesehatan
+                                    <br />
+                                    Praktis untuk Anda
+                                </h2>
+
+                                <p className="mt-2 text-xs leading-relaxed text-blue-50">
+                                    Booking klinik, pemeriksaan, dan
+                                    layanan kesehatan hanya dalam beberapa
+                                    langkah.
+                                </p>
+
+                                <button
+                                    type="button"
+                                    onClick={handleSeeServices}
+                                    className="cursor-pointer mt-4 rounded-xl bg-white px-4 py-2 text-xs font-bold text-blue-600 shadow-sm transition hover:bg-blue-50"
+                                >
+                                    Lihat Layanan
+                                </button>
+                            </div>
+
+                            <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl bg-white/15 text-5xl">
+                                🏥
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-5 mb-3 flex items-center justify-between">
                         <h2 className="text-xl font-extrabold">
                             Kategori
                         </h2>
@@ -474,71 +535,51 @@ const Home = () => {
                     )}
                 </section>
 
-                <section className="mt-7">
-                    <h2 className="text-xl font-extrabold">
-                        Spesial di STIQR
+                <section className="mt-8">
+                    <h2 className="mb-3 text-xl font-extrabold">
+                        Cara kerjanya
                     </h2>
 
-                    <div className="mt-3 grid grid-cols-2 gap-3">
-                        {/* PROMO DENTAL */}
-                        <div className="rounded-2xl bg-orange-50 p-4">
-                            <div className="text-3xl">
-                                🦷
+                    <div className="grid grid-cols-3 gap-2">
+                        {[
+                            {
+                                number: 1,
+                                title: "Bayar di DANA",
+                                description: "Harga sudah final",
+                            },
+                            {
+                                number: 2,
+                                title: "Dapat Health Pass",
+                                description: "QR masuk ke emailmu",
+                            },
+                            {
+                                number: 3,
+                                title: "Datang langsung",
+                                description: "Tunjukkan QR di klinik",
+                            },
+                        ].map((step) => (
+                            <div
+                                key={step.number}
+                                className="rounded-2xl border border-slate-200 bg-white p-3"
+                            >
+                                <div
+                                    className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${step.number === 3
+                                        ? "bg-emerald-400 text-slate-900"
+                                        : "bg-blue-600 text-white"
+                                        }`}
+                                >
+                                    {step.number}
+                                </div>
+
+                                <h3 className="mt-3 text-[11px] font-extrabold leading-tight">
+                                    {step.title}
+                                </h3>
+
+                                <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+                                    {step.description}
+                                </p>
                             </div>
-
-                            <p className="mt-3 text-sm font-bold">
-                                Promo Dental
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-500">
-                                Perawatan gigi dengan harga terbaik
-                            </p>
-                        </div>
-
-                        {/* MEDICAL CHECK-UP */}
-                        <div className="rounded-2xl bg-cyan-50 p-4">
-                            <div className="text-3xl">
-                                🩺
-                            </div>
-
-                            <p className="mt-3 text-sm font-bold">
-                                Medical Check-Up
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-500">
-                                Cek kesehatan secara praktis
-                            </p>
-                        </div>
-
-                        {/* OPTICAL */}
-                        <div className="rounded-2xl bg-purple-50 p-4">
-                            <div className="text-3xl">
-                                👁️
-                            </div>
-
-                            <p className="mt-3 text-sm font-bold">
-                                Pemeriksaan Mata
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-500">
-                                Pemeriksaan mata terpercaya
-                            </p>
-                        </div>
-
-                        {/* VACCINATION */}
-                        <div className="rounded-2xl bg-green-50 p-4">
-                            <div className="text-3xl">
-                                💉
-                            </div>
-
-                            <p className="mt-3 text-sm font-bold">
-                                Vaksinasi
-                            </p>
-
-                            <p className="mt-1 text-xs text-slate-500">
-                                Berbagai pilihan vaksin tersedia
-                            </p>
-                        </div>
+                        ))}
                     </div>
                 </section>
 
@@ -731,6 +772,47 @@ const Home = () => {
                                 ))}
                             </div>
                         )}
+                </section>
+
+                <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-4">
+                    <h2 className="text-sm font-extrabold">
+                        Kenapa beli di STIQR Health
+                    </h2>
+
+                    <div className="mt-4 space-y-3">
+                        <div className="flex items-start gap-3">
+                            <ShieldCheck
+                                size={17}
+                                className="shrink-0 text-emerald-600"
+                            />
+
+                            <p className="text-xs text-slate-700">
+                                Klinik berizin, dokter bersertifikat
+                            </p>
+                        </div>
+
+                        <div className="flex items-start gap-3">
+                            <Wallet
+                                size={17}
+                                className="shrink-0 text-emerald-600"
+                            />
+
+                            <p className="text-xs text-slate-700">
+                                Lihat harga layanan sebelum melakukan pembayaran
+                            </p>
+                        </div>
+
+                        <div className="flex items-start gap-3">
+                            <CheckCircle2
+                                size={17}
+                                className="shrink-0 text-emerald-600"
+                            />
+
+                            <p className="text-xs text-slate-700">
+                                Kelola Health Pass melalui akun kamu
+                            </p>
+                        </div>
+                    </div>
                 </section>
             </div>
         </div>
