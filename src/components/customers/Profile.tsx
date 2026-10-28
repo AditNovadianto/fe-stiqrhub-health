@@ -1,21 +1,25 @@
+import {
+    useEffect,
+    useState,
+    type ReactNode,
+} from "react";
 
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
-    UserRound,
-    Mail,
-    Phone,
-    IdCard,
-    History,
-    Ticket,
-    LogOut,
-    ChevronRight,
-    ShieldCheck,
-    RefreshCw,
     AlertCircle,
+    Bell,
+    ChevronDown,
+    ChevronRight,
+    IdCard,
+    Info,
+    LogOut,
+    MessageCircle,
+    RefreshCw,
+    ShieldCheck,
+    Ticket,
+    UserRound,
     X,
-    CheckCircle2,
 } from "lucide-react";
 
 import { isTokenExpired } from "../../utils/auth";
@@ -26,6 +30,7 @@ interface Customer {
     email_customer?: string;
     phone_number_customer?: string;
     gender_customer?: string;
+    dob_customer?: string;
     date_of_birth?: string;
     address_customer?: string;
 }
@@ -34,6 +39,15 @@ type CustomerRecord = Customer & {
     customer?: Customer;
     data?: Customer | { customer?: Customer };
 };
+
+interface MenuItemProps {
+    icon: ReactNode;
+    title: string;
+    description?: string;
+    onClick: () => void;
+    expanded?: boolean;
+    iconBackground?: string;
+}
 
 const getCustomerData = (): Customer | null => {
     try {
@@ -47,20 +61,23 @@ const getCustomerData = (): Customer | null => {
             return null;
         }
 
-        // Mendukung beberapa kemungkinan struktur login.
-        let customer: Customer;
-
-        if (parsed && typeof parsed === "object" && "customer" in parsed && parsed.customer) {
-            customer = parsed.customer as Customer;
-        } else if (parsed && typeof parsed === "object" && "data" in parsed && parsed.data) {
-            customer = ("customer" in parsed.data && parsed.data.customer)
-                ? (parsed.data.customer as Customer)
-                : (parsed.data as Customer);
-        } else {
-            customer = parsed as Customer;
+        // Mendukung struktur data dari login sebelumnya.
+        if (parsed.customer) {
+            return parsed.customer;
         }
 
-        return customer;
+        if (parsed.data) {
+            if (
+                "customer" in parsed.data &&
+                parsed.data.customer
+            ) {
+                return parsed.data.customer;
+            }
+
+            return parsed.data as Customer;
+        }
+
+        return parsed;
     } catch (error) {
         console.error("[CUSTOMER DATA ERROR]", error);
         return null;
@@ -68,46 +85,89 @@ const getCustomerData = (): Customer | null => {
 };
 
 const getInitials = (name: string): string => {
-    const words = name
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
+    const words = name.trim().split(/\s+/).filter(Boolean);
 
     if (words.length === 0) return "U";
 
-    return words
-        .slice(0, 2)
-        .map((word) => word.charAt(0).toUpperCase())
-        .join("");
+    // Mengikuti screenshot: menggunakan huruf awal nama.
+    return words[0].charAt(0).toUpperCase();
 };
 
-const formatCustomerId = (
-    value?: number | string
-): string => {
-    if (value === undefined || value === null) {
-        return "-";
-    }
+const MenuItem = ({
+    icon,
+    title,
+    description,
+    onClick,
+    expanded = false,
+    iconBackground = "bg-blue-50",
+}: MenuItemProps) => {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-expanded={expanded ? true : undefined}
+            className="
+                flex w-full cursor-pointer items-center gap-3
+                rounded-2xl border border-[#D8E4F2]
+                bg-white px-4 py-3.5 text-left
+                transition hover:border-blue-300 hover:bg-blue-50/30
+                active:scale-[0.995]
+            "
+        >
+            {/* ICON */}
+            <div
+                className={`
+          flex h-9 w-9 shrink-0 items-center justify-center
+          rounded-xl text-[#0872E5] ${iconBackground}
+        `}
+            >
+                {icon}
+            </div>
 
-    return String(value);
+            {/* TITLE & DESCRIPTION */}
+            <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-bold leading-snug text-[#002C65]">
+                    {title}
+                </p>
+
+                {description && (
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-[#526787]">
+                        {description}
+                    </p>
+                )}
+            </div>
+
+            {/* CHEVRON */}
+            {expanded ? (
+                <ChevronDown
+                    size={16}
+                    className="shrink-0 text-[#003B80]"
+                />
+            ) : (
+                <ChevronRight
+                    size={16}
+                    className="shrink-0 text-[#003B80]"
+                />
+            )}
+        </button>
+    );
 };
 
 const Profile = () => {
     const navigate = useNavigate();
 
-    const [customer, setCustomer] =
-        useState<Customer | null>(null);
+    const [customer, setCustomer] = useState<Customer | null>(
+        null
+    );
 
-    const [loading, setLoading] =
-        useState(true);
+    const [loading, setLoading] = useState(true);
 
     const [showLogoutModal, setShowLogoutModal] =
         useState(false);
 
-    const [refreshing, setRefreshing] =
-        useState(false);
+    const [errorMessage, setErrorMessage] = useState("");
 
-    const [errorMessage, setErrorMessage] =
-        useState("");
+    const [notification, setNotification] = useState("");
 
     const redirectToLogin = () => {
         sessionStorage.removeItem("customer_token");
@@ -120,8 +180,7 @@ const Profile = () => {
     };
 
     useEffect(() => {
-        const token =
-            sessionStorage.getItem("customer_token");
+        const token = sessionStorage.getItem("customer_token");
 
         if (!token || isTokenExpired(token)) {
             redirectToLogin();
@@ -141,72 +200,74 @@ const Profile = () => {
         setLoading(false);
     }, [navigate]);
 
-    const handleRefreshProfile = () => {
-        setRefreshing(true);
-        setErrorMessage("");
-
-        const token =
-            sessionStorage.getItem("customer_token");
-
-        if (!token || isTokenExpired(token)) {
-            redirectToLogin();
-            return;
-        }
-
-        const updatedCustomer = getCustomerData();
-
-        setCustomer(updatedCustomer);
-
-        if (!updatedCustomer) {
-            setErrorMessage(
-                "Data profil tidak ditemukan di penyimpanan lokal."
-            );
-        }
-
-        setRefreshing(false);
+    const showUnavailableNotification = (
+        feature: string
+    ) => {
+        setNotification(
+            `Fitur ${feature} belum tersedia saat ini.`
+        );
     };
+
+    useEffect(() => {
+        if (!notification) return;
+
+        const timeout = window.setTimeout(() => {
+            setNotification("");
+        }, 3500);
+
+        return () => window.clearTimeout(timeout);
+    }, [notification]);
 
     const handleLogout = () => {
         sessionStorage.removeItem("customer_token");
         localStorage.removeItem("customer_data");
 
+        // Bersihkan token legacy jika ada.
+        localStorage.removeItem("customer_token");
+
         setCustomer(null);
         setShowLogoutModal(false);
 
-        // Kembali ke halaman login
         navigate("/customer/sign-in", {
             replace: true,
         });
     };
 
+    const handleSupport = () => {
+        // Nomor WhatsApp resmi Bantuan STIQR Health
+        const supportNumber = "6285218596185";
+
+        // Pesan otomatis ketika WhatsApp dibuka
+        const message = encodeURIComponent(
+            "Halo STIQR Health, saya ingin meminta bantuan terkait layanan STIQR Health."
+        );
+
+        // Membuka WhatsApp pada tab baru atau aplikasi WhatsApp
+        window.open(
+            `https://wa.me/${supportNumber}?text=${message}`,
+            "_blank",
+            "noopener,noreferrer"
+        );
+    };
+
     const customerName =
-        customer?.name_customer?.trim() ||
-        "Customer STIQR";
+        customer?.name_customer?.trim() || "Customer STIQR";
 
     const customerEmail =
-        customer?.email_customer?.trim() ||
-        "-";
-
-    const customerPhone =
-        customer?.phone_number_customer?.trim() ||
-        "-";
-
-    const customerId = formatCustomerId(
-        customer?.id_customer
-    );
+        customer?.email_customer?.trim() || "-";
 
     const initials = getInitials(customerName);
 
     if (loading) {
         return (
-            <div className="flex min-h-[60vh] items-center justify-center bg-slate-50">
+            <div className="flex min-h-[70vh] items-center justify-center bg-[#F5F8FC]">
                 <div className="text-center">
                     <RefreshCw
-                        size={30}
+                        size={28}
                         className="mx-auto animate-spin text-blue-600"
                     />
 
-                    <p className="mt-4 text-sm text-slate-500">
+                    <p className="mt-3 text-sm text-slate-500">
                         Memuat profil...
                     </p>
                 </div>
@@ -215,304 +276,191 @@ const Profile = () => {
     }
 
     return (
-        <div className="min-h-[60vh] bg-slate-50 pb-10">
-            <section className="bg-linear-to-br from-cyan-100 via-sky-100 to-blue-100 px-5 pb-8 pt-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
-                            STIQR Health
-                        </p>
+        <div className="min-h-screen bg-[#F5F8FC] text-[#002C65]">
+            {notification && (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    className="fixed left-1/2 top-4 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2"
+                >
+                    <div className="flex items-start gap-3 rounded-2xl border border-[#D7E5F5] bg-white p-4 shadow-xl">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                            <Info size={20} />
+                        </div>
 
-                        <h2 className="mt-2 text-xl font-extrabold text-slate-900">
-                            Profil Saya
-                        </h2>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-[#002C65]">
+                                Fitur belum tersedia
+                            </p>
 
-                        <p className="mt-1 text-xs text-slate-600">
-                            Informasi akun dan layanan Anda
-                        </p>
+                            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                                {notification}
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => setNotification("")}
+                            aria-label="Tutup notifikasi"
+                            className="cursor-pointer text-slate-400 hover:text-slate-700"
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
-
-                    <button
-                        type="button"
-                        onClick={handleRefreshProfile}
-                        disabled={refreshing}
-                        title="Refresh Profil"
-                        aria-label="Refresh Profil"
-                        className="cursor-pointer flex h-11 w-11 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm transition hover:bg-blue-50 disabled:opacity-50"
-                    >
-                        <RefreshCw
-                            size={19}
-                            className={
-                                refreshing ? "animate-spin" : ""
-                            }
-                        />
-                    </button>
                 </div>
+            )}
 
-                {/* PROFILE CARD */}
-                <div className="mt-6 rounded-3xl border border-white/70 bg-white p-5 shadow-sm">
-                    <div className="flex items-center gap-4">
+            <main className="mx-auto w-full max-w-lg space-y-3 px-4.5 pb-28 pt-4">
+                <section className="rounded-[18px] border border-[#D8E4F2] bg-white px-4 py-4">
+                    <div className="flex items-center gap-3">
                         {/* AVATAR */}
-                        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-linear-to-br from-blue-600 to-cyan-400 text-2xl font-extrabold text-white shadow-md">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#E7F2FF] text-xl font-bold text-[#0872E5]">
                             {initials}
                         </div>
 
-                        {/* USER INFORMATION */}
+                        {/* USER DATA */}
                         <div className="min-w-0 flex-1">
-                            <h3 className="wrap-break-word text-lg font-extrabold text-slate-900">
+                            <h2 className="truncate text-[15px] font-bold text-[#002C65]">
                                 {customerName}
-                            </h3>
+                            </h2>
 
-                            <p className="mt-1 break-all text-xs text-slate-500">
+                            <p className="mt-0.5 truncate text-[12px] text-[#526787]">
                                 {customerEmail}
                             </p>
-
-                            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5">
-                                <ShieldCheck
-                                    size={14}
-                                    className="text-emerald-600"
-                                />
-
-                                <span className="text-[11px] font-bold text-emerald-700">
-                                    Sesi Login Aktif
-                                </span>
-                            </div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <div className="space-y-5 px-5 py-6">
-                {/* ERROR */}
                 {errorMessage && (
-                    <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                    <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
                         <AlertCircle
-                            size={20}
+                            size={18}
                             className="shrink-0 text-amber-600"
                         />
 
-                        <p className="text-xs leading-5 text-amber-700">
+                        <p className="text-xs leading-relaxed text-amber-700">
                             {errorMessage}
                         </p>
                     </div>
                 )}
 
-                <section>
-                    <h3 className="mb-3 text-base font-extrabold text-slate-900">
-                        Informasi Pribadi
-                    </h3>
+                <MenuItem
+                    icon={<UserRound size={19} />}
+                    title="Data diri"
+                    description="Dipakai otomatis saat beli untuk diri sendiri"
+                    onClick={() => navigate("/customer/personal-data")}
+                />
 
-                    <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-                        {/* NAME */}
-                        <div className="flex items-start gap-3 border-b border-slate-100 p-4">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                                <UserRound size={19} />
-                            </div>
+                <MenuItem
+                    icon={<ShieldCheck size={19} />}
+                    title="Asuransi / benefit kantor"
+                    description="Hubungkan kartu, lihat sisa benefit"
+                    onClick={() =>
+                        showUnavailableNotification(
+                            "Asuransi / Benefit Kantor"
+                        )
+                    }
+                />
 
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs text-slate-400">
-                                    Nama Lengkap
-                                </p>
+                <MenuItem
+                    icon={<Bell size={19} />}
+                    title="Notifikasi"
+                    onClick={() =>
+                        showUnavailableNotification("Notifikasi")
+                    }
+                />
 
-                                <p className="mt-1 wrap-break-word text-sm font-semibold text-slate-800">
-                                    {customerName}
-                                </p>
-                            </div>
-                        </div>
+                <MenuItem
+                    icon={<MessageCircle size={19} />}
+                    title="Bantuan STIQR Health"
+                    description="WhatsApp"
+                    onClick={handleSupport}
+                />
 
-                        {/* EMAIL */}
-                        <div className="flex items-start gap-3 border-b border-slate-100 p-4">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
-                                <Mail size={19} />
-                            </div>
+                <MenuItem
+                    icon={<Ticket size={19} />}
+                    title="Syarat & Ketentuan"
+                    onClick={() => navigate("/customer/terms-conditions")}
+                />
 
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs text-slate-400">
-                                    Email
-                                </p>
+                <MenuItem
+                    icon={<ShieldCheck size={19} />}
+                    title="Kebijakan Privasi"
+                    onClick={() => navigate("/customer/privacy-policy")}
+                />
 
-                                <p className="mt-1 break-all text-sm font-semibold text-slate-800">
-                                    {customerEmail}
-                                </p>
-                            </div>
-                        </div>
+                <div className="pt-2">
+                    <p className="mb-3 text-xs font-semibold text-[#526787]">
+                        Aktivitas akun
+                    </p>
 
-                        {/* PHONE */}
-                        <div className="flex items-start gap-3 border-b border-slate-100 p-4">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-                                <Phone size={19} />
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs text-slate-400">
-                                    Nomor Telepon
-                                </p>
-
-                                <p className="mt-1 wrap-break-word text-sm font-semibold text-slate-800">
-                                    {customerPhone}
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* CUSTOMER ID */}
-                        <div className="flex items-start gap-3 p-4">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                                <IdCard size={19} />
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs text-slate-400">
-                                    Customer ID
-                                </p>
-
-                                <p className="mt-1 break-all text-sm font-semibold text-slate-800">
-                                    {customerId}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section>
-                    <h3 className="mb-3 text-base font-extrabold text-slate-900">
-                        Aktivitas Saya
-                    </h3>
-
-                    <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-                        {/* HISTORY */}
-                        <button
-                            type="button"
+                    <div className="space-y-3">
+                        <MenuItem
+                            icon={<RefreshCw size={19} />}
+                            title="Riwayat Pesanan"
+                            description="Lihat transaksi dan status pesanan"
                             onClick={() =>
                                 navigate("/customer/history")
                             }
-                            className="cursor-pointer flex w-full items-center gap-3 border-b border-slate-100 p-4 text-left transition hover:bg-slate-50"
-                        >
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                                <History size={21} />
-                            </div>
+                        />
 
-                            <div className="min-w-0 flex-1">
-                                <p className="text-sm font-bold text-slate-800">
-                                    Riwayat Pesanan
-                                </p>
-
-                                <p className="mt-1 text-xs text-slate-500">
-                                    Lihat transaksi dan status pesanan
-                                </p>
-                            </div>
-
-                            <ChevronRight
-                                size={19}
-                                className="text-slate-400"
-                            />
-                        </button>
-
-                        {/* HEALTH PASS */}
-                        <button
-                            type="button"
+                        <MenuItem
+                            icon={<IdCard size={19} />}
+                            title="Health Pass Saya"
+                            description="Akses tiket layanan dan QR Code"
                             onClick={() =>
                                 navigate("/customer/health-pass")
                             }
-                            className="cursor-pointer flex w-full items-center gap-3 p-4 text-left transition hover:bg-slate-50"
-                        >
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                                <Ticket size={21} />
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                                <p className="text-sm font-bold text-slate-800">
-                                    Health Pass Saya
-                                </p>
-
-                                <p className="mt-1 text-xs text-slate-500">
-                                    Akses tiket layanan dan QR Code
-                                </p>
-                            </div>
-
-                            <ChevronRight
-                                size={19}
-                                className="text-slate-400"
-                            />
-                        </button>
+                        />
                     </div>
-                </section>
+                </div>
 
-                <section>
-                    <h3 className="mb-3 text-base font-extrabold text-slate-900">
-                        Keamanan Akun
-                    </h3>
+                <section className="pt-1">
+                    <button
+                        type="button"
+                        onClick={() => setShowLogoutModal(true)}
+                        className="
+                            flex h-13 w-full cursor-pointer
+                            items-center justify-center
+                            rounded-2xl border border-[#BDD0E7]
+                            bg-white text-sm font-bold text-[#002C65]
+                            transition hover:border-blue-300 hover:bg-blue-50
+                        "
+                    >
+                        Keluar
+                    </button>
 
-                    <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                        <div className="flex items-start gap-3">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-                                <ShieldCheck size={22} />
-                            </div>
-
-                            <div>
-                                <p className="text-sm font-bold text-slate-800">
-                                    Autentikasi Customer
-                                </p>
-
-                                <p className="mt-1 text-xs leading-5 text-slate-500">
-                                    Akses riwayat pesanan, Health Pass,
-                                    dan informasi pribadi dilindungi
-                                    menggunakan sesi autentikasi.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-3">
-                            <CheckCircle2
-                                size={17}
-                                className="text-emerald-600"
-                            />
-
-                            <p className="text-xs font-medium text-emerald-700">
-                                Anda sedang login sebagai customer.
-                            </p>
-                        </div>
-                    </div>
-                </section>
-
-                <section>
+                    {/* Logout all devices not implemented yet */}
                     <button
                         type="button"
                         onClick={() =>
-                            setShowLogoutModal(true)
+                            showUnavailableNotification(
+                                "Keluar dari Semua Perangkat"
+                            )
                         }
-                        className="cursor-pointer flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-4 text-sm font-bold text-red-600 transition hover:bg-red-50"
+                        className="mt-4 w-full cursor-pointer py-3 text-center text-xs font-semibold text-[#526787] transition hover:text-blue-600"
                     >
-                        <LogOut size={19} />
-                        Keluar dari Akun
+                        Keluar dari semua perangkat
                     </button>
-
-                    <p className="mt-4 text-center text-[11px] text-slate-400">
-                        STIQR Health
-                    </p>
                 </section>
-            </div>
+            </main>
 
             {showLogoutModal && (
                 <div
-                    className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 p-5"
+                    className="fixed inset-0 flex items-center justify-center bg-black/45 p-5 z-100"
                     role="presentation"
-                    onClick={() =>
-                        setShowLogoutModal(false)
-                    }
+                    onClick={() => setShowLogoutModal(false)}
                 >
                     <div
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="logout-modal-title"
-                        className="w-full max-w-95 rounded-3xl bg-white p-6 shadow-xl"
-                        onClick={(event) =>
-                            event.stopPropagation()
-                        }
+                        className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl"
+                        onClick={(event) => event.stopPropagation()}
                     >
-                        {/* MODAL HEADER */}
                         <div className="flex items-start justify-between">
-                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                                <LogOut size={27} />
+                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
+                                <LogOut size={24} />
                             </div>
 
                             <button
@@ -520,34 +468,33 @@ const Profile = () => {
                                 onClick={() =>
                                     setShowLogoutModal(false)
                                 }
-                                aria-label="Tutup konfirmasi"
-                                className="cursor-pointer flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500"
+                                aria-label="Tutup konfirmasi logout"
+                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-500"
                             >
-                                <X size={19} />
+                                <X size={18} />
                             </button>
                         </div>
 
                         <h3
                             id="logout-modal-title"
-                            className="mt-5 text-xl font-extrabold text-slate-900"
+                            className="mt-5 text-lg font-bold text-[#002C65]"
                         >
                             Keluar dari Akun?
                         </h3>
 
-                        <p className="mt-3 text-sm leading-6 text-slate-500">
-                            Anda akan keluar dari akun STIQR Health.
-                            Untuk mengakses kembali riwayat pesanan
-                            dan Health Pass, Anda perlu login lagi.
+                        <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                            Kamu akan keluar dari akun STIQR Health di
+                            browser ini. Untuk mengakses kembali riwayat
+                            pesanan dan Health Pass, kamu perlu masuk lagi.
                         </p>
 
-                        {/* ACTION BUTTONS */}
                         <div className="mt-6 flex gap-3">
                             <button
                                 type="button"
                                 onClick={() =>
                                     setShowLogoutModal(false)
                                 }
-                                className="cursor-pointer flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                                className="flex-1 cursor-pointer rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600"
                             >
                                 Batal
                             </button>
@@ -555,7 +502,7 @@ const Profile = () => {
                             <button
                                 type="button"
                                 onClick={handleLogout}
-                                className="cursor-pointer flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700"
+                                className="flex-1 cursor-pointer rounded-xl bg-[#0872E5] px-4 py-3 text-sm font-bold text-white hover:bg-blue-700"
                             >
                                 Ya, Keluar
                             </button>

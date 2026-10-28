@@ -23,9 +23,14 @@ import ScanHealthPasses from './components/providers/ScanHealthPasses.tsx'
 import Transactions from './components/providers/Transactions.tsx'
 import Redemptions from './components/providers/Redemptions.tsx'
 import Settlement from './components/providers/Settlement.tsx'
-import Services from './components/providers/Services.tsx'
+import ServicesProvider from './components/providers/Services.tsx'
+import ServicesCustomer from './components/customers/Services.tsx'
 import ProfileProvider from './components/providers/Profile.tsx'
 import Booking from './components/customers/Booking.tsx'
+import PersonalData from './components/customers/PersonalData.tsx'
+import PrivacyPolicy from './components/customers/PrivacyPolicy.tsx'
+import TermsConditions from './components/customers/TermsConditions.tsx'
+import UserConsent from './components/customers/UserConsent.tsx'
 
 const router = createBrowserRouter([
   {
@@ -59,6 +64,10 @@ const router = createBrowserRouter([
             element: <HomeCustomer />,
           },
           {
+            path: "services",
+            element: <ServicesCustomer />,
+          },
+          {
             path: "service/:id_service",
             element: <DetailService />,
           },
@@ -77,6 +86,22 @@ const router = createBrowserRouter([
           {
             path: "profile",
             element: <ProfileCustomer />,
+          },
+          {
+            path: "personal-data",
+            element: <PersonalData />,
+          },
+          {
+            path: "privacy-policy",
+            element: <PrivacyPolicy />,
+          },
+          {
+            path: "terms-conditions",
+            element: <TermsConditions />,
+          },
+          {
+            path: "user-consent",
+            element: <UserConsent />,
           },
         ],
       },
@@ -126,7 +151,7 @@ const router = createBrowserRouter([
           },
           {
             path: "services",
-            element: <Services />,
+            element: <ServicesProvider />,
           },
           {
             path: "profile",

@@ -407,7 +407,7 @@ const History = () => {
                             STIQR Health
                         </p>
 
-                        <h2 className="mt-2 text-xl font-extrabold text-slate-900">
+                        <h2 className="mt-2 text-xl font-bold text-slate-900">
                             Riwayat Pesanan
                         </h2>
 
@@ -429,7 +429,7 @@ const History = () => {
                             Total Pesanan
                         </p>
 
-                        <p className="mt-1 text-2xl font-extrabold text-slate-900">
+                        <p className="mt-1 text-2xl font-bold text-slate-900">
                             {loading ? "..." : orders.length}
                         </p>
                     </div>
@@ -498,7 +498,7 @@ const History = () => {
 
             <section className="px-5 py-5">
                 <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-base font-extrabold text-slate-900">
+                    <h3 className="text-base font-bold text-slate-900">
                         Daftar Pesanan
                     </h3>
 
@@ -660,7 +660,7 @@ const History = () => {
 
                                                 {/* CONTENT */}
                                                 <div className="min-w-0 flex-1">
-                                                    <h3 className="line-clamp-2 text-sm font-extrabold text-slate-900">
+                                                    <h3 className="line-clamp-2 text-sm font-bold text-slate-900">
                                                         {order.name_service}
                                                     </h3>
 
@@ -675,7 +675,7 @@ const History = () => {
                                                         {order.name_provider}
                                                     </p>
 
-                                                    <p className="mt-2 text-base font-extrabold text-slate-900">
+                                                    <p className="mt-2 text-base font-bold text-slate-900">
                                                         {formatRupiah(
                                                             order.total
                                                         )}
@@ -762,7 +762,7 @@ const History = () => {
                                                         Total Pembayaran
                                                     </p>
 
-                                                    <p className="mt-1 text-lg font-extrabold text-blue-600">
+                                                    <p className="mt-1 text-lg font-bold text-blue-600">
                                                         {formatRupiah(
                                                             order.total
                                                         )}

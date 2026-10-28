@@ -3,7 +3,7 @@ import {
     useState,
     type FormEvent,
 } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
     AlertCircle,
     ArrowLeft,
@@ -841,7 +841,7 @@ const Booking = () => {
                         className="space-y-5"
                     >
                         <div>
-                            <h1 className="text-xl font-extrabold text-blue-900 sm:text-2xl">
+                            <h1 className="text-xl font-bold text-blue-900 sm:text-2xl">
                                 Kapan kamu berencana datang?
                             </h1>
 
@@ -978,7 +978,7 @@ const Booking = () => {
                                 Rencana kunjungan
                             </span>
 
-                            <span className="text-right text-sm font-bold text-blue-800">
+                            <span className="text-right text-sm font-semibold text-blue-800">
                                 {selectedDate
                                     ? formatDate(selectedDate)
                                     : "Belum dipilih"}
@@ -994,7 +994,7 @@ const Booking = () => {
                                 />
 
                                 <div>
-                                    <h2 className="font-bold text-slate-900">
+                                    <h2 className="font-semibold text-slate-900">
                                         Pilih Jam Kunjungan
                                     </h2>
 
@@ -1111,7 +1111,7 @@ const Booking = () => {
                                             setRecipient("SELF");
                                             setError("");
                                         }}
-                                        className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 px-3 py-3 text-sm font-bold transition ${recipient === "SELF"
+                                        className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 px-3 py-3 text-sm font-semibold transition ${recipient === "SELF"
                                             ? "border-blue-600 bg-blue-50 text-blue-700"
                                             : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
                                             }`}
@@ -1126,7 +1126,7 @@ const Booking = () => {
                                             setRecipient("GUEST");
                                             setError("");
                                         }}
-                                        className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 px-3 py-3 text-sm font-bold transition ${recipient === "GUEST"
+                                        className={`flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 px-3 py-3 text-sm font-semibold transition ${recipient === "GUEST"
                                             ? "border-blue-600 bg-blue-50 text-blue-700"
                                             : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"
                                             }`}
@@ -1417,23 +1417,50 @@ const Booking = () => {
                             )}
 
                             {/* CONSENT */}
-                            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 p-4">
-                                <input
-                                    type="checkbox"
-                                    checked={consent}
-                                    onChange={(e) =>
-                                        setConsent(e.target.checked)
-                                    }
-                                    className="mt-1 accent-blue-600"
-                                />
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                <div className="flex items-start gap-3">
+                                    {/* CHECKBOX - UNCHECKED BY DEFAULT */}
+                                    <input
+                                        id="customer-user-consent"
+                                        type="checkbox"
+                                        checked={consent}
+                                        onChange={(event) => {
+                                            setConsent(event.target.checked);
+                                            setError("");
+                                        }}
+                                        required
+                                        aria-describedby="customer-user-consent-description"
+                                        className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-blue-600"
+                                    />
 
-                                <span className="text-xs leading-relaxed text-slate-600">
-                                    Saya menyetujui penggunaan data pasien
-                                    untuk proses booking layanan STIQR Hub
-                                    Health dan pengiriman Health Pass
-                                    sesuai ketentuan yang berlaku.
-                                </span>
-                            </label>
+                                    {/* CONSENT TEXT & DOCUMENT LINK */}
+                                    <div className="min-w-0 flex-1">
+                                        <label
+                                            htmlFor="customer-user-consent"
+                                            id="customer-user-consent-description"
+                                            className="cursor-pointer text-xs leading-relaxed text-slate-600"
+                                        >
+                                            Saya telah membaca dan memahami informasi
+                                            pemrosesan Data Pribadi serta menyetujui
+                                            pemrosesan Data Pribadi saya untuk keperluan
+                                            Verifikasi Identitas dan penyelenggaraan
+                                            layanan STIQR Health sesuai dengan Ketentuan
+                                            yang berlaku.
+                                        </label>
+
+                                        <div className="mt-2">
+                                            <Link
+                                                to="/customer/user-consent"
+                                                state={{ from: location.pathname }}
+                                                className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 underline underline-offset-2 transition hover:text-blue-700"
+                                            >
+                                                <ShieldCheck size={14} />
+                                                Baca Persetujuan Pemrosesan Data Pribadi
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </section>
 
                         {/* NEXT BUTTON */}

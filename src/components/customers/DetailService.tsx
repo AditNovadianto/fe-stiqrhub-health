@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -75,10 +74,6 @@ interface ApiResponse<T> {
     data: T;
 }
 
-const API_URI = String(
-    import.meta.env.VITE_API_URI || "",
-).replace(/\/$/, "");
-
 // Sesuai endpoint Postman yang sudah berhasil diuji.
 const getBranchEndpoint = (serviceId: number) =>
     `/service/${serviceId}/branches`;
@@ -125,7 +120,7 @@ const fetchApi = async <T,>(
     signal: AbortSignal,
 ): Promise<T> => {
     const response = await fetch(
-        `${API_URI}${endpoint}`,
+        `${import.meta.env.VITE_API_URI}${endpoint}`,
         {
             method: "GET",
             headers: {
@@ -612,13 +607,13 @@ const DetailService = () => {
                                 </div>
 
                                 {/* SERVICE NAME */}
-                                <h1 className="mt-3 text-2xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-3xl">
+                                <h1 className="mt-3 text-2xl font-bold leading-tight tracking-tight text-slate-900 sm:text-3xl">
                                     {service.name_service}
                                 </h1>
 
                                 {/* PRICE UNDER TITLE, AS IN REFERENCE */}
                                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                                    <p className="text-2xl font-extrabold text-blue-700">
+                                    <p className="text-2xl font-bold text-blue-700">
                                         {formatRupiah(
                                             service.price_service,
                                         )}
@@ -794,7 +789,7 @@ const DetailService = () => {
                     <div className="mt-5 grid gap-5 lg:grid-cols-2">
                         {/* BENEFITS */}
                         <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
-                            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
                                 <ShieldCheck
                                     size={20}
                                     className="text-blue-600"
@@ -826,7 +821,7 @@ const DetailService = () => {
 
                         {/* INCLUDED SERVICES */}
                         <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
-                            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
                                 <CheckCircle2
                                     size={20}
                                     className="text-blue-600"
@@ -860,7 +855,7 @@ const DetailService = () => {
 
                         {/* LOCATION & HOURS */}
                         <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
-                            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
                                 <MapPin
                                     size={20}
                                     className="text-blue-600"
@@ -954,7 +949,7 @@ const DetailService = () => {
 
                         {/* TERMS */}
                         <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6">
-                            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
                                 <FileText
                                     size={20}
                                     className="text-blue-600"
@@ -1008,7 +1003,7 @@ const DetailService = () => {
                             Total Harga
                         </p>
 
-                        <p className="text-lg font-extrabold text-blue-600 sm:text-xl">
+                        <p className="text-lg font-bold text-blue-600 sm:text-xl">
                             {service
                                 ? formatRupiah(
                                     service.price_service,

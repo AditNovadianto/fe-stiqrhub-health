@@ -1,12 +1,16 @@
 import {
     AlertCircle,
+    ArrowLeft,
     CheckCircle2,
-    Mail,
+    ChevronRight,
+    Info,
     RefreshCw,
     ShieldCheck,
+    X,
 } from "lucide-react";
 
 import {
+    useEffect,
     useRef,
     useState,
     type ChangeEvent,
@@ -15,7 +19,11 @@ import {
     type KeyboardEvent,
 } from "react";
 
-import { useNavigate } from "react-router-dom";
+import {
+    useNavigate,
+    useSearchParams,
+} from "react-router-dom";
+
 import logo from "../../images/logo-stiqrhub-health.jpeg";
 
 interface Customer {
@@ -33,11 +41,11 @@ interface AuthResponse {
     success?: boolean;
     message?: string;
 
-    // Token sementara untuk verifikasi OTP
+    // Temporary OTP session.
     otp_token?: string;
     expires_in_seconds?: number;
 
-    // Token JWT setelah login berhasil
+    // Customer session after OTP verification.
     token?: string;
     customer?: Customer;
 
@@ -55,15 +63,19 @@ const OTP_LENGTH = 6;
 
 async function postAuth(
     endpoint: string,
-    payload: Record<string, string>,
+    payload: Record<string, string>
 ): Promise<AuthResponse> {
-    const response = await fetch(`${import.meta.env.VITE_API_URI}${endpoint}`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-    });
+    const response = await fetch(
+        `${import.meta.env.VITE_API_URI}${endpoint}`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            body: JSON.stringify(payload),
+        }
+    );
 
     let result: AuthResponse;
 
@@ -71,14 +83,14 @@ async function postAuth(
         result = await response.json();
     } catch {
         throw new Error(
-            "Server memberikan response yang tidak valid.",
+            "Server memberikan respons yang tidak valid."
         );
     }
 
     if (!response.ok || result.success === false) {
         throw new Error(
             result.message ||
-            "Permintaan gagal diproses. Silakan coba lagi.",
+            "Permintaan gagal diproses. Silakan coba lagi."
         );
     }
 
@@ -87,14 +99,14 @@ async function postAuth(
 
 const SignIn = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
 
     const [email, setEmail] = useState("");
 
     const [otp, setOtp] = useState<string[]>(
-        Array(OTP_LENGTH).fill(""),
+        Array(OTP_LENGTH).fill("")
     );
 
-    // OTP token dari backend /customer/sign-in
     const [otpToken, setOtpToken] = useState("");
 
     const [step, setStep] = useState<SignInStep>("EMAIL");
@@ -108,6 +120,10 @@ const SignIn = () => {
     const [expiresInSeconds, setExpiresInSeconds] =
         useState<number | null>(null);
 
+    // Notification untuk fitur benefit kantor.
+    const [showFeatureToast, setShowFeatureToast] =
+        useState(false);
+
     const otpInputRefs = useRef<
         Array<HTMLInputElement | null>
     >([]);
@@ -116,10 +132,43 @@ const SignIn = () => {
 
     const otpCode = otp.join("");
 
+    const isValidEmail =
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+            normalizedEmail
+        );
+
+    // Redirect setelah login, misalnya dari Book.
+    // Hanya mengizinkan path internal aplikasi.
+
+    const requestedRedirect = searchParams.get("redirect");
+
+    const redirectAfterLogin =
+        requestedRedirect?.startsWith("/") &&
+            !requestedRedirect.startsWith("//") &&
+            !requestedRedirect.startsWith("/\\")
+            ? requestedRedirect
+            : "/customer/home";
+
     const clearNotifications = () => {
         setError("");
         setMessage("");
     };
+
+    const handleFeatureUnavailable = () => {
+        setShowFeatureToast(true);
+    };
+
+    useEffect(() => {
+        if (!showFeatureToast) return;
+
+        const timeout = window.setTimeout(() => {
+            setShowFeatureToast(false);
+        }, 3500);
+
+        return () => {
+            window.clearTimeout(timeout);
+        };
+    }, [showFeatureToast]);
 
     const resetOtp = () => {
         setOtp(Array(OTP_LENGTH).fill(""));
@@ -129,11 +178,19 @@ const SignIn = () => {
         otpInputRefs.current[index]?.focus();
     };
 
-    const getOtpToken = (result: AuthResponse) => {
-        return result.otp_token || result.data?.otp_token || "";
+    const getOtpToken = (
+        result: AuthResponse
+    ): string => {
+        return (
+            result.otp_token ||
+            result.data?.otp_token ||
+            ""
+        );
     };
 
-    const getExpiry = (result: AuthResponse) => {
+    const getExpiry = (
+        result: AuthResponse
+    ): number | null => {
         return (
             result.expires_in_seconds ??
             result.data?.expires_in_seconds ??
@@ -141,17 +198,57 @@ const SignIn = () => {
         );
     };
 
-    const handleSendOtp = async (e: FormEvent) => {
+    const handleBack = () => {
+        if (loading) return;
+
+        if (step === "OTP") {
+            setStep("EMAIL");
+            resetOtp();
+            setOtpToken("");
+            setExpiresInSeconds(null);
+            clearNotifications();
+            return;
+        }
+
+        navigate("/customer/home");
+    };
+
+    const handleSignUp = () => {
+        if (loading) return;
+
+        const redirect = searchParams.get("redirect");
+
+        if (redirect) {
+            navigate(
+                `/customer/sign-up?redirect=${encodeURIComponent(redirect)}`
+            );
+            return;
+        }
+
+        navigate("/customer/sign-up");
+    };
+
+    const handleChangeEmail = () => {
+        if (loading) return;
+
+        setStep("EMAIL");
+        setOtpToken("");
+        resetOtp();
+        setExpiresInSeconds(null);
+        clearNotifications();
+    };
+
+    const handleSendOtp = async (
+        e: FormEvent
+    ) => {
         e.preventDefault();
 
         if (loading) return;
 
-        if (
-            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-                normalizedEmail,
-            )
-        ) {
-            setError("Please enter a valid email address.");
+        if (!isValidEmail) {
+            setError(
+                "Masukkan alamat email yang valid."
+            );
             return;
         }
 
@@ -163,35 +260,36 @@ const SignIn = () => {
                 "/customer/sign-in",
                 {
                     email_customer: normalizedEmail,
-                },
+                }
             );
 
-            // PENTING:
-            // Simpan otp_token dari backend.
-            const receivedOtpToken = getOtpToken(result);
+            const receivedOtpToken =
+                getOtpToken(result);
 
             if (!receivedOtpToken) {
                 throw new Error(
-                    "OTP token tidak ditemukan pada response server.",
+                    "OTP token tidak ditemukan pada respons server."
                 );
             }
 
             setOtpToken(receivedOtpToken);
 
-            setExpiresInSeconds(getExpiry(result));
+            setExpiresInSeconds(
+                getExpiry(result)
+            );
 
             resetOtp();
 
             setStep("OTP");
 
             setMessage(
-                "A verification code has been sent to your email.",
+                "Kode verifikasi telah dikirim ke email kamu."
             );
         } catch (err) {
             setError(
                 err instanceof Error
                     ? err.message
-                    : "Failed to send verification code.",
+                    : "Gagal mengirim kode OTP."
             );
         } finally {
             setLoading(false);
@@ -200,16 +298,17 @@ const SignIn = () => {
 
     const handleOtpChange = (
         e: ChangeEvent<HTMLInputElement>,
-        index: number,
+        index: number
     ) => {
-        const value = e.target.value.replace(/\D/g, "");
+        const value = e.target.value.replace(
+            /\D/g,
+            ""
+        );
 
         if (!value) {
             setOtp((prev) => {
                 const next = [...prev];
-
                 next[index] = "";
-
                 return next;
             });
 
@@ -217,7 +316,8 @@ const SignIn = () => {
             return;
         }
 
-        // Mendukung autofill beberapa digit sekaligus.
+        // Supports autofill containing multiple digits.
+
         if (value.length > 1) {
             const digits = value
                 .slice(0, OTP_LENGTH - index)
@@ -236,8 +336,8 @@ const SignIn = () => {
             focusOtp(
                 Math.min(
                     index + digits.length,
-                    OTP_LENGTH - 1,
-                ),
+                    OTP_LENGTH - 1
+                )
             );
 
             setError("");
@@ -246,9 +346,7 @@ const SignIn = () => {
 
         setOtp((prev) => {
             const next = [...prev];
-
             next[index] = value;
-
             return next;
         });
 
@@ -261,7 +359,7 @@ const SignIn = () => {
 
     const handleOtpKeyDown = (
         e: KeyboardEvent<HTMLInputElement>,
-        index: number,
+        index: number
     ) => {
         if (e.key === "Backspace") {
             e.preventDefault();
@@ -269,17 +367,13 @@ const SignIn = () => {
             if (otp[index]) {
                 setOtp((prev) => {
                     const next = [...prev];
-
                     next[index] = "";
-
                     return next;
                 });
             } else if (index > 0) {
                 setOtp((prev) => {
                     const next = [...prev];
-
                     next[index - 1] = "";
-
                     return next;
                 });
 
@@ -289,9 +383,11 @@ const SignIn = () => {
             setError("");
         }
 
-        if (e.key === "ArrowLeft" && index > 0) {
+        if (
+            e.key === "ArrowLeft" &&
+            index > 0
+        ) {
             e.preventDefault();
-
             focusOtp(index - 1);
         }
 
@@ -300,14 +396,13 @@ const SignIn = () => {
             index < OTP_LENGTH - 1
         ) {
             e.preventDefault();
-
             focusOtp(index + 1);
         }
     };
 
     const handleOtpPaste = (
         e: ClipboardEvent<HTMLInputElement>,
-        index: number,
+        index: number
     ) => {
         e.preventDefault();
 
@@ -321,9 +416,11 @@ const SignIn = () => {
         setOtp((prev) => {
             const next = [...prev];
 
-            pastedCode.split("").forEach((digit, offset) => {
-                next[index + offset] = digit;
-            });
+            pastedCode
+                .split("")
+                .forEach((digit, offset) => {
+                    next[index + offset] = digit;
+                });
 
             return next;
         });
@@ -333,26 +430,28 @@ const SignIn = () => {
         focusOtp(
             Math.min(
                 index + pastedCode.length,
-                OTP_LENGTH - 1,
-            ),
+                OTP_LENGTH - 1
+            )
         );
     };
 
-    const handleVerifyOtp = async (e: FormEvent) => {
+    const handleVerifyOtp = async (
+        e: FormEvent
+    ) => {
         e.preventDefault();
 
         if (loading) return;
 
         if (!/^\d{6}$/.test(otpCode)) {
             setError(
-                "Please enter the complete 6-digit verification code.",
+                "Masukkan kode verifikasi 6 digit secara lengkap."
             );
             return;
         }
 
         if (!otpToken) {
             setError(
-                "OTP session is missing. Please request a new code.",
+                "Sesi OTP tidak ditemukan. Silakan kirim kode baru."
             );
             return;
         }
@@ -361,55 +460,62 @@ const SignIn = () => {
             setLoading(true);
             clearNotifications();
 
-            // PENTING:
-            // Backend memerlukan 3 field berikut:
-            // email_customer, otp, otp_token.
             const result = await postAuth(
                 "/customer/verify-login-otp",
                 {
                     email_customer: normalizedEmail,
                     otp: otpCode,
                     otp_token: otpToken,
-                },
+                }
             );
 
             const token =
-                result.token || result.data?.token;
+                result.token ||
+                result.data?.token;
 
             const customer =
-                result.customer || result.data?.customer;
+                result.customer ||
+                result.data?.customer;
 
             if (!token || !customer) {
                 throw new Error(
-                    "Login berhasil, tetapi data session tidak lengkap.",
+                    "Login berhasil, tetapi data session tidak lengkap."
                 );
             }
 
+            // Simpan customer session seperti sebelumnya.
+
             sessionStorage.setItem(
                 "customer_token",
-                token,
+                token
             );
 
             localStorage.setItem(
                 "customer_data",
-                JSON.stringify(customer),
+                JSON.stringify(customer)
             );
 
-            // Hapus token lama dari mekanisme login sebelumnya.
-            localStorage.removeItem("customer_token");
+            // Hapus token versi lama.
 
-            // Bersihkan OTP sementara dari state.
+            localStorage.removeItem(
+                "customer_token"
+            );
+
+            // Clear temporary OTP session.
+
             setOtpToken("");
             resetOtp();
 
-            navigate("/customer/home", {
+            // Hormati redirect dari halaman sebelumnya.
+
+            navigate(redirectAfterLogin, {
                 replace: true,
             });
         } catch (err) {
             setError(
                 err instanceof Error
                     ? err.message
-                    : "OTP verification failed. Please try again.",
+                    : "Verifikasi OTP gagal. Silakan coba lagi."
             );
         } finally {
             setLoading(false);
@@ -427,333 +533,486 @@ const SignIn = () => {
                 "/customer/resend-otp",
                 {
                     email_customer: normalizedEmail,
-                    purpose: "LOGIN"
-                },
+                    purpose: "LOGIN",
+                }
             );
 
-            // Jika backend mengembalikan otp_token baru,
-            // gunakan token tersebut untuk verifikasi berikutnya.
-            const newOtpToken = getOtpToken(result);
+            const newOtpToken =
+                getOtpToken(result);
 
             if (newOtpToken) {
                 setOtpToken(newOtpToken);
             }
 
-            setExpiresInSeconds(getExpiry(result));
+            setExpiresInSeconds(
+                getExpiry(result)
+            );
 
             resetOtp();
 
             setMessage(
-                "A new verification code has been sent to your email.",
+                "Kode OTP baru telah dikirim ke email kamu."
             );
 
-            focusOtp(0);
+            window.setTimeout(() => {
+                focusOtp(0);
+            }, 0);
         } catch (err) {
             setError(
                 err instanceof Error
                     ? err.message
-                    : "Failed to resend verification code.",
+                    : "Gagal mengirim ulang kode OTP."
             );
         } finally {
             setLoading(false);
         }
     };
 
-    const inputClass =
-        "w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100";
+    const renderError = () => {
+        if (!error) return null;
 
-    const buttonClass =
-        "flex w-full cursor-pointer items-center justify-center rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400";
+        return (
+            <div
+                role="alert"
+                className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3"
+            >
+                <AlertCircle
+                    size={19}
+                    className="mt-0.5 shrink-0 text-red-600"
+                />
+
+                <p className="text-sm leading-relaxed text-red-700">
+                    {error}
+                </p>
+            </div>
+        );
+    };
+
+    const renderMessage = () => {
+        if (!message) return null;
+
+        return (
+            <div
+                role="status"
+                className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3"
+            >
+                <CheckCircle2
+                    size={19}
+                    className="mt-0.5 shrink-0 text-emerald-600"
+                />
+
+                <p className="text-sm leading-relaxed text-emerald-700">
+                    {message}
+                </p>
+            </div>
+        );
+    };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10">
-            <div className="w-full max-w-md">
-                <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-                    {/* LOGO */}
+        <div className="min-h-screen bg-white text-slate-900">
+            {showFeatureToast && (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    className="fixed left-1/2 top-5 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2"
+                >
+                    <div className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-white px-4 py-3 shadow-xl">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                            <Info size={19} />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-slate-900">
+                                Fitur belum tersedia
+                            </p>
+
+                            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                                Pembayaran menggunakan asuransi atau
+                                benefit kantor belum tersedia saat ini.
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setShowFeatureToast(false)
+                            }
+                            aria-label="Tutup notifikasi"
+                            className="shrink-0 cursor-pointer text-slate-400 hover:text-slate-700"
+                        >
+                            <X size={17} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <header className="border-b border-slate-200 bg-white">
+                <div className="mx-auto flex h-14 w-full max-w-lg items-center px-4">
+                    <button
+                        type="button"
+                        onClick={handleBack}
+                        disabled={loading}
+                        aria-label="Kembali"
+                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        <ArrowLeft
+                            size={21}
+                            strokeWidth={1.9}
+                        />
+                    </button>
+                </div>
+            </header>
+
+            <main className="mx-auto flex min-h-[calc(100vh-56px)] w-full max-w-lg flex-col px-6 pb-6 pt-4">
+                <div>
                     <img
                         src={logo}
-                        alt="STIQR Hub Health"
-                        className="mx-auto h-20 w-20 rounded-xl object-cover"
+                        alt="STIQR Health"
+                        className="h-18 w-18 object-contain"
                     />
+                </div>
 
-                    {/* HEADER */}
-                    <div className="mb-7 mt-5 text-center">
-                        <h1 className="text-2xl font-semibold text-gray-900">
-                            {step === "EMAIL"
-                                ? "Sign In"
-                                : "Verify Your Email"}
-                        </h1>
+                <div className="mt-4">
+                    <h1 className="text-[27px] font-bold leading-tight tracking-tight text-[#00357A]">
+                        {step === "EMAIL"
+                            ? "Masuk dengan email"
+                            : "Cek email kamu"}
+                    </h1>
 
-                        {step === "EMAIL" ? (
-                            <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                                Sign in to your StiqrHub Health account
-                                using your email address.
+                    {step === "EMAIL" ? (
+                        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                            Tanpa password. Kami kirim kode OTP ke
+                            email kamu untuk verifikasi.
+                        </p>
+                    ) : (
+                        <div className="mt-2">
+                            <p className="text-sm leading-relaxed text-slate-600">
+                                Kami sudah mengirim kode verifikasi
+                                6 digit ke email:
                             </p>
-                        ) : (
-                            <div className="mt-3 space-y-1">
-                                <p className="text-sm text-gray-500">
-                                    We've sent a 6-digit verification code to
-                                </p>
 
-                                <p className="break-all text-sm font-semibold text-gray-900">
-                                    {normalizedEmail}
-                                </p>
+                            <p className="mt-1 break-all text-sm font-semibold text-slate-900">
+                                {normalizedEmail}
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {step === "EMAIL" && (
+                    <form
+                        id="customer-sign-in-email-form"
+                        onSubmit={handleSendOtp}
+                        className="mt-6 flex flex-1 flex-col"
+                    >
+                        {/* EMAIL FIELD */}
+                        <div>
+                            <label
+                                htmlFor="email_customer"
+                                className="mb-2 block text-xs font-bold text-[#002E69]"
+                            >
+                                Email
+                            </label>
+
+                            <input
+                                id="email_customer"
+                                name="email_customer"
+                                type="email"
+                                autoComplete="email"
+                                inputMode="email"
+                                required
+                                value={email}
+                                onChange={(event) => {
+                                    setEmail(event.target.value);
+                                    clearNotifications();
+                                }}
+                                placeholder="nama@email.com"
+                                disabled={loading}
+                                className="h-12.5 w-full rounded-xl border border-slate-300 bg-white px-4 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                            />
+                        </div>
+
+                        {/* ERROR MESSAGE */}
+                        {error && (
+                            <div className="mt-4">
+                                {renderError()}
                             </div>
                         )}
-                    </div>
 
-                    {/* ERROR MESSAGE */}
-                    {error && (
-                        <div
-                            role="alert"
-                            className="mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3"
-                        >
-                            <AlertCircle
-                                size={19}
-                                className="mt-0.5 shrink-0 text-red-600"
-                            />
+                        {/* INFORMATION */}
+                        <div className="mt-5 space-y-3">
+                            <div className="flex items-start gap-3">
+                                <CheckCircle2
+                                    size={16}
+                                    strokeWidth={2}
+                                    className="mt-0.5 shrink-0 text-emerald-600"
+                                />
 
-                            <div>
-                                <p className="text-sm font-semibold text-red-700">
-                                    {step === "EMAIL"
-                                        ? "Sign In Failed"
-                                        : "Verification Failed"}
+                                <p className="text-xs leading-relaxed text-[#003168]">
+                                    Satu email untuk satu akun. Health
+                                    Pass dan bukti bayar dikirim ke email
+                                    ini.
                                 </p>
+                            </div>
 
-                                <p className="mt-1 text-sm leading-relaxed text-red-600">
-                                    {error}
+                            <div className="flex items-start gap-3">
+                                <CheckCircle2
+                                    size={16}
+                                    strokeWidth={2}
+                                    className="mt-0.5 shrink-0 text-emerald-600"
+                                />
+
+                                <p className="text-xs leading-relaxed text-[#003168]">
+                                    Cukup sekali. Pembelian berikutnya
+                                    tidak perlu OTP lagi di perangkat ini
+                                    selama sesi login masih aktif.
                                 </p>
                             </div>
                         </div>
-                    )}
 
-                    {/* SUCCESS MESSAGE */}
-                    {message && (
-                        <div
-                            role="status"
-                            className="mb-5 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3"
-                        >
-                            <CheckCircle2
-                                size={19}
-                                className="mt-0.5 shrink-0 text-green-600"
-                            />
+                        {/* OR DIVIDER */}
+                        <div className="my-7 flex items-center gap-3">
+                            <div className="h-px flex-1 bg-slate-200" />
 
-                            <div>
-                                <p className="text-sm font-semibold text-green-700">
-                                    Verification Code Sent
-                                </p>
+                            <span className="text-xs font-semibold text-slate-500">
+                                atau
+                            </span>
 
-                                <p className="mt-1 text-sm leading-relaxed text-green-700">
-                                    {message}
-                                </p>
-                            </div>
+                            <div className="h-px flex-1 bg-slate-200" />
                         </div>
-                    )}
 
-                    {/* EMAIL STEP */}
-                    {step === "EMAIL" && (
-                        <form
-                            onSubmit={handleSendOtp}
-                            className="space-y-5"
+                        <button
+                            type="button"
+                            onClick={handleFeatureUnavailable}
+                            aria-label="Pakai asuransi atau benefit kantor, fitur belum tersedia"
+                            className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left transition hover:border-blue-200 hover:bg-slate-50 active:scale-[0.99]"
                         >
-                            <div>
-                                <label
-                                    htmlFor="email_customer"
-                                    className="mb-2 block text-sm font-medium text-gray-700"
-                                >
-                                    Email Address
-                                </label>
-
-                                <div className="relative">
-                                    <Mail
-                                        size={18}
-                                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                                    />
-
-                                    <input
-                                        id="email_customer"
-                                        name="email_customer"
-                                        type="email"
-                                        required
-                                        autoComplete="email"
-                                        value={email}
-                                        onChange={(e) => {
-                                            setEmail(e.target.value);
-
-                                            clearNotifications();
-                                        }}
-                                        placeholder="Enter your email"
-                                        disabled={loading}
-                                        className={`${inputClass} pl-11`}
-                                    />
-                                </div>
+                            {/* ICON */}
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-teal-600">
+                                <ShieldCheck
+                                    size={22}
+                                    strokeWidth={1.9}
+                                />
                             </div>
 
+                            {/* TEXT */}
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold text-[#002E69]">
+                                    Pakai asuransi / benefit kantor
+                                </p>
+
+                                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                                    Masuk sekaligus hubungkan kartu,
+                                    bisa bayar Rp0
+                                </p>
+                            </div>
+
+                            {/* ARROW */}
+                            <ChevronRight
+                                size={19}
+                                className="shrink-0 text-[#002E69]"
+                            />
+                        </button>
+
+                        {/* FLEX SPACER */}
+                        <div className="min-h-12 flex-1" />
+
+                        <div className="mt-8 space-y-3">
                             <button
                                 type="submit"
-                                disabled={loading}
-                                className={buttonClass}
+                                disabled={
+                                    loading || !isValidEmail
+                                }
+                                className="flex h-13 w-full cursor-pointer items-center justify-center rounded-xl bg-[#0866D8] px-4 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-[#B7CAE4] disabled:text-white"
                             >
                                 {loading ? (
                                     <>
                                         <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                        Sending OTP...
+                                        Mengirim kode OTP...
                                     </>
                                 ) : (
-                                    "Send Verification Code"
+                                    "Kirim kode OTP"
                                 )}
                             </button>
-                        </form>
-                    )}
 
-                    {/* OTP STEP */}
-                    {step === "OTP" && (
-                        <form
-                            onSubmit={handleVerifyOtp}
-                            className="space-y-6"
-                        >
-                            {/* ICON */}
-                            <div className="flex justify-center">
-                                <div className="rounded-full bg-blue-50 p-4">
-                                    <ShieldCheck
-                                        size={30}
-                                        className="text-blue-600"
-                                    />
-                                </div>
-                            </div>
+                            <div className="mt-4 flex flex-wrap items-center justify-center gap-1 text-sm">
+                                <span className="text-slate-500">
+                                    Belum punya akun?
+                                </span>
 
-                            {/* OTP INPUT */}
-                            <div className="space-y-3">
-                                <label className="block text-center text-sm font-medium text-gray-700">
-                                    Verification Code
-                                </label>
-
-                                <div
-                                    role="group"
-                                    aria-label="6-digit verification code"
-                                    className="flex w-full justify-center gap-2 sm:gap-3"
+                                <button
+                                    type="button"
+                                    onClick={handleSignUp}
+                                    disabled={loading}
+                                    className="cursor-pointer font-semibold text-[#0866D8] transition hover:text-blue-700 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                    {otp.map((digit, index) => (
-                                        <input
-                                            key={index}
-                                            ref={(element) => {
-                                                otpInputRefs.current[index] =
-                                                    element;
-                                            }}
-                                            type="text"
-                                            inputMode="numeric"
-                                            pattern="[0-9]*"
-                                            maxLength={6}
-                                            autoComplete={
-                                                index === 0
-                                                    ? "one-time-code"
-                                                    : "off"
-                                            }
-                                            aria-label={`OTP digit ${index + 1}`}
-                                            autoFocus={index === 0}
-                                            value={digit}
-                                            disabled={loading}
-                                            onChange={(e) =>
-                                                handleOtpChange(e, index)
-                                            }
-                                            onKeyDown={(e) =>
-                                                handleOtpKeyDown(e, index)
-                                            }
-                                            onPaste={(e) =>
-                                                handleOtpPaste(e, index)
-                                            }
-                                            onFocus={(e) =>
-                                                e.target.select()
-                                            }
-                                            className="
-                        h-12 w-10 min-w-0 rounded-xl
-                        border border-gray-300 bg-white
-                        text-center text-xl font-semibold
-                        text-gray-900 outline-none transition
-                        focus:border-blue-500
-                        focus:ring-2 focus:ring-blue-100
-                        disabled:cursor-not-allowed
-                        disabled:bg-gray-100
-                        sm:h-14 sm:w-12
-                      "
-                                        />
-                                    ))}
-                                </div>
-
-                                <p className="text-center text-xs leading-relaxed text-gray-500">
-                                    Enter the verification code from your email.
-                                    Do not share this code with anyone.
-                                </p>
-
-                                {expiresInSeconds !== null && (
-                                    <p className="text-center text-xs text-gray-500">
-                                        Code validity:{" "}
-                                        <span className="font-medium text-gray-700">
-                                            {Math.ceil(
-                                                expiresInSeconds / 60,
-                                            )}{" "}
-                                            minutes
-                                        </span>
-                                        {" "}from the time it was issued.
-                                    </p>
-                                )}
+                                    Daftar sekarang
+                                </button>
                             </div>
 
-                            {/* VERIFY BUTTON */}
+                            <p className="text-center text-[11px] leading-relaxed text-slate-500">
+                                Dengan melanjutkan, kamu menyetujui{" "}
+                                <button
+                                    type="button"
+                                    onClick={() => navigate("/customer/terms-conditions")}
+                                    className="cursor-pointer font-medium text-blue-600 underline underline-offset-2"
+                                >
+                                    Syarat & Ketentuan
+                                </button>{" "}
+                                dan{" "}
+                                <button
+                                    type="button"
+                                    onClick={() => navigate("/customer/privacy-policy")}
+                                    className="cursor-pointer font-medium text-blue-600 underline underline-offset-2"
+                                >
+                                    Kebijakan Privasi
+                                </button>
+                                .
+                            </p>
+                        </div>
+                    </form>
+                )}
+
+                {step === "OTP" && (
+                    <form
+                        id="customer-sign-in-otp-form"
+                        onSubmit={handleVerifyOtp}
+                        className="mt-6 flex flex-1 flex-col"
+                    >
+                        {/* OTP LABEL */}
+                        <label className="mt-6 block text-sm font-bold text-[#002E69]">
+                            Kode verifikasi
+                        </label>
+
+                        {/* OTP INPUTS */}
+                        <div
+                            role="group"
+                            aria-label="Kode verifikasi 6 digit"
+                            className="mt-3 grid w-full grid-cols-6 gap-2"
+                        >
+                            {otp.map((digit, index) => (
+                                <input
+                                    key={index}
+                                    ref={(element) => {
+                                        otpInputRefs.current[index] =
+                                            element;
+                                    }}
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    maxLength={6}
+                                    autoComplete={
+                                        index === 0
+                                            ? "one-time-code"
+                                            : "off"
+                                    }
+                                    aria-label={`Digit OTP ${index + 1}`}
+                                    value={digit}
+                                    disabled={loading}
+                                    onChange={(event) =>
+                                        handleOtpChange(event, index)
+                                    }
+                                    onKeyDown={(event) =>
+                                        handleOtpKeyDown(
+                                            event,
+                                            index
+                                        )
+                                    }
+                                    onPaste={(event) =>
+                                        handleOtpPaste(event, index)
+                                    }
+                                    onFocus={(event) =>
+                                        event.target.select()
+                                    }
+                                    className="h-14 min-w-0 w-full rounded-xl border border-slate-300 bg-white text-center text-xl font-bold text-[#00357A] outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                                />
+                            ))}
+                        </div>
+
+                        {/* OTP INFO */}
+                        <p className="mt-4 text-xs leading-relaxed text-slate-500">
+                            Masukkan kode 6 digit yang dikirim ke
+                            email kamu. Jangan bagikan kode ini
+                            kepada siapa pun.
+                        </p>
+
+                        {expiresInSeconds !== null && (
+                            <p className="mt-2 text-xs text-slate-500">
+                                Kode berlaku selama{" "}
+                                <span className="font-semibold text-slate-700">
+                                    {Math.ceil(
+                                        expiresInSeconds / 60
+                                    )}{" "}
+                                    menit
+                                </span>{" "}
+                                sejak diterbitkan.
+                            </p>
+                        )}
+
+                        {/* NOTIFICATIONS */}
+                        {error && (
+                            <div className="mt-5">
+                                {renderError()}
+                            </div>
+                        )}
+
+                        {message && (
+                            <div className="mt-5">
+                                {renderMessage()}
+                            </div>
+                        )}
+
+                        {/* RESEND OTP */}
+                        <div className="mt-7 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <p className="text-center text-sm text-slate-600">
+                                Belum menerima kode?
+                            </p>
+
+                            <button
+                                type="button"
+                                onClick={handleResendOtp}
+                                disabled={loading}
+                                className="mx-auto mt-3 flex cursor-pointer items-center justify-center gap-2 text-sm font-bold text-blue-600 transition hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <RefreshCw size={16} />
+                                Kirim ulang kode OTP
+                            </button>
+                        </div>
+
+                        {/* FLEX SPACER */}
+                        <div className="min-h-12 flex-1" />
+
+                        {/* BOTTOM ACTION */}
+                        <div className="mt-8 space-y-3">
                             <button
                                 type="submit"
                                 disabled={
                                     loading ||
                                     otp.some((digit) => !digit)
                                 }
-                                className={buttonClass}
+                                className="flex h-13 w-full cursor-pointer items-center justify-center rounded-xl bg-[#0866D8] px-4 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-[#B7CAE4]"
                             >
                                 {loading ? (
                                     <>
                                         <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                        Verifying...
+                                        Memverifikasi...
                                     </>
                                 ) : (
-                                    "Verify & Sign In"
+                                    "Verifikasi & Masuk"
                                 )}
                             </button>
 
-                            {/* RESEND OTP */}
-                            <div className="text-center">
-                                <p className="text-sm text-gray-500">
-                                    Didn't receive the code?
-                                </p>
-
-                                <button
-                                    type="button"
-                                    onClick={handleResendOtp}
-                                    disabled={loading}
-                                    className="mt-2 inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    <RefreshCw size={15} />
-                                    Resend Verification Code
-                                </button>
-                            </div>
-                        </form>
-                    )}
-
-                    {/* SIGN UP LINK */}
-                    <div className="mt-5 border-t border-gray-100 pt-6 text-center">
-                        <p className="text-sm text-gray-500">
-                            Don't have an account?{" "}
                             <button
                                 type="button"
-                                onClick={() =>
-                                    navigate("/customer/sign-up")
-                                }
-                                className="cursor-pointer font-medium text-blue-600 hover:text-blue-700"
+                                onClick={handleChangeEmail}
+                                disabled={loading}
+                                className="w-full cursor-pointer py-2 text-center text-sm font-semibold text-slate-500 transition hover:text-blue-600 disabled:opacity-50"
                             >
-                                Sign Up
+                                Gunakan email lain
                             </button>
-                        </p>
-                    </div>
-                </div>
-            </div>
+                        </div>
+                    </form>
+                )}
+            </main>
         </div>
     );
 };

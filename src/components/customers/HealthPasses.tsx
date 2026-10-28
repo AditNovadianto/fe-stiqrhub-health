@@ -701,7 +701,7 @@ const HealthPasses = () => {
                             STIQR Health
                         </p>
 
-                        <h2 className="mt-2 text-xl font-extrabold text-slate-900">
+                        <h2 className="mt-2 text-xl font-bold text-slate-900">
                             Health Pass Saya
                         </h2>
 
@@ -723,7 +723,7 @@ const HealthPasses = () => {
                             Total Health Pass
                         </p>
 
-                        <p className="mt-1 text-2xl font-extrabold text-slate-900">
+                        <p className="mt-1 text-2xl font-bold text-slate-900">
                             {loading
                                 ? "..."
                                 : passes.length}
@@ -735,7 +735,7 @@ const HealthPasses = () => {
                             Sedang Aktif
                         </p>
 
-                        <p className="mt-1 text-2xl font-extrabold text-emerald-600">
+                        <p className="mt-1 text-2xl font-bold text-emerald-600">
                             {loading
                                 ? "..."
                                 : activeCount}
@@ -834,7 +834,7 @@ const HealthPasses = () => {
 
             <section className="px-5 py-5">
                 <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-base font-extrabold text-slate-900">
+                    <h3 className="text-base font-bold text-slate-900">
                         Daftar Health Pass
                     </h3>
 
@@ -981,9 +981,8 @@ const HealthPasses = () => {
                                                         className="text-blue-600"
                                                     />
 
-                                                    <span className="text-xs font-extrabold text-blue-700">
-                                                        HEALTH
-                                                        PASS
+                                                    <span className="text-xs font-bold text-blue-700">
+                                                        HEALTH PASS
                                                     </span>
                                                 </div>
 
@@ -1020,7 +1019,7 @@ const HealthPasses = () => {
                                                     </div>
 
                                                     <div className="min-w-0 flex-1">
-                                                        <h4 className="line-clamp-2 text-sm font-extrabold text-slate-900">
+                                                        <h4 className="line-clamp-2 text-sm font-bold text-slate-900">
                                                             {
                                                                 pass.name_service
                                                             }
@@ -1041,7 +1040,7 @@ const HealthPasses = () => {
                                                             </span>
                                                         </div>
 
-                                                        <p className="mt-2 text-sm font-extrabold text-slate-900">
+                                                        <p className="mt-2 text-sm font-bold text-slate-900">
                                                             {formatRupiah(
                                                                 pass.price_service
                                                             )}
@@ -1211,7 +1210,7 @@ const HealthPasses = () => {
                         <div className="flex items-center justify-between gap-3">
                             <h3
                                 id="health-pass-modal-title"
-                                className="text-lg font-extrabold text-slate-900"
+                                className="text-lg font-bold text-slate-900"
                             >
                                 Health Pass Digital
                             </h3>
@@ -1235,7 +1234,7 @@ const HealthPasses = () => {
 
                         {/* SERVICE */}
                         <div className="mt-5 text-center">
-                            <h4 className="text-base font-extrabold text-slate-900">
+                            <h4 className="text-base font-bold text-slate-900">
                                 {
                                     selectedPass.name_service
                                 }

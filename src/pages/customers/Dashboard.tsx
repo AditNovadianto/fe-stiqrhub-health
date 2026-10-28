@@ -16,7 +16,7 @@ import {
     useNavigate,
 } from "react-router-dom";
 
-import logo from "../../images/logo-stiqrhub-health.jpeg"
+import logo from "../../images/logo-stiqrhub-health-home.png"
 
 import { useState } from "react";
 
@@ -149,7 +149,7 @@ const Dashboard = () => {
         <div className="min-h-screen bg-slate-100 text-slate-900">
             <div className="mx-auto min-h-screen w-full max-w-130 bg-white pb-24 shadow-sm">
                 {isHomePage ? (
-                    <header className="bg-linear-to-br from-cyan-100 via-sky-100 to-blue-100 px-5 pb-5 pt-5">
+                    <header className="bg-linear-to-br from-cyan-100 via-sky-100 to-blue-100 px-5 pb-3 pt-5">
                         <div className="flex items-start justify-between gap-3">
                             <div>
                                 <div className="flex items-center gap-2">
@@ -160,7 +160,7 @@ const Dashboard = () => {
                                             Layanan kesehatan cepat
                                         </p>
 
-                                        <h1 className="mt-1 text-2xl font-extrabold leading-tight text-slate-900">
+                                        <h1 className="mt-1 text-2xl font-bold leading-tight text-slate-900">
                                             STIQR Health
                                         </h1>
 
@@ -271,22 +271,30 @@ const Dashboard = () => {
                             </button>
 
                             <div>
-                                <h1 className="text-base font-extrabold text-slate-900">
+                                <h1 className="text-base font-bold text-slate-900">
                                     {isDetailPage
                                         ? "Detail Layanan"
-                                        : location.pathname.startsWith(
-                                            "/customer/history"
-                                        )
+                                        : location.pathname.startsWith("/customer/history")
                                             ? "Riwayat"
-                                            : location.pathname.startsWith(
-                                                "/customer/health-pass"
-                                            )
+                                            : location.pathname.startsWith("/customer/health-pass")
                                                 ? "Health Pass"
-                                                : location.pathname.startsWith(
-                                                    "/customer/profile"
-                                                )
-                                                    ? "Profile"
-                                                    : "STIQR Health"}
+                                                : location.pathname.startsWith("/customer/personal-data")
+                                                    ? "Data Diri"
+                                                    : location.pathname.startsWith("/customer/terms-conditions")
+                                                        ? "Syarat & Ketentuan"
+                                                        : location.pathname.startsWith("/customer/privacy-policy")
+                                                            ? "Kebijakan Privasi"
+                                                            : location.pathname.startsWith("/customer/user-consent")
+                                                                ? "Persetujuan Data Pribadi"
+                                                                : location.pathname.startsWith("/customer/profile")
+                                                                    ? "Akun"
+                                                                    : location.pathname.startsWith("/customer/services")
+                                                                        ? "Layanan"
+                                                                        : location.pathname.startsWith("/customer/sign-in")
+                                                                            ? "Masuk"
+                                                                            : location.pathname.startsWith("/customer/sign-up")
+                                                                                ? "Daftar Akun"
+                                                                                : "STIQR Health"}
                                 </h1>
 
                                 <p className="text-xs text-slate-500">

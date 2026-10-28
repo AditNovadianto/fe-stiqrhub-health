@@ -1,12 +1,16 @@
 import {
     AlertCircle,
+    ArrowLeft,
     CheckCircle2,
-    MailCheck,
+    ChevronRight,
+    Info,
     RefreshCw,
     ShieldCheck,
+    X,
 } from "lucide-react";
 
 import {
+    useEffect,
     useRef,
     useState,
     type ChangeEvent,
@@ -15,7 +19,11 @@ import {
     type KeyboardEvent,
 } from "react";
 
-import { useNavigate } from "react-router-dom";
+import {
+    useNavigate,
+    useSearchParams,
+} from "react-router-dom";
+
 import logo from "../../images/logo-stiqrhub-health.jpeg";
 
 interface SignUpForm {
@@ -41,17 +49,25 @@ type SignUpStep = "FORM" | "OTP";
 
 const OTP_LENGTH = 6;
 
+const API_BASE_URL = String(
+    import.meta.env.VITE_API_URI || ""
+).replace(/\/+$/, "");
+
 async function postAuth(
     endpoint: string,
-    payload: Record<string, string | number>,
+    payload: Record<string, string | number>
 ): Promise<ApiResponse> {
-    const response = await fetch(`${import.meta.env.VITE_API_URI}${endpoint}`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-    });
+    const response = await fetch(
+        `${API_BASE_URL}${endpoint}`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            body: JSON.stringify(payload),
+        }
+    );
 
     let result: ApiResponse;
 
@@ -59,14 +75,14 @@ async function postAuth(
         result = await response.json();
     } catch {
         throw new Error(
-            "Server memberikan response yang tidak valid.",
+            "Server memberikan respons yang tidak valid."
         );
     }
 
     if (!response.ok || result.success === false) {
         throw new Error(
             result.message ||
-            "Permintaan gagal diproses. Silakan coba lagi.",
+            "Permintaan gagal diproses. Silakan coba lagi."
         );
     }
 
@@ -75,6 +91,7 @@ async function postAuth(
 
 const SignUp = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
 
     const [formData, setFormData] = useState<SignUpForm>({
         name_customer: "",
@@ -85,19 +102,25 @@ const SignUp = () => {
     });
 
     const [otp, setOtp] = useState<string[]>(
-        Array(OTP_LENGTH).fill(""),
+        Array(OTP_LENGTH).fill("")
     );
 
     const [otpToken, setOtpToken] = useState("");
 
     const [step, setStep] = useState<SignUpStep>("FORM");
-    const [loading, setLoading] = useState(false);
 
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
 
     const [expiresInSeconds, setExpiresInSeconds] =
         useState<number | null>(null);
+
+    const [showFeatureToast, setShowFeatureToast] =
+        useState(false);
+
+    const [showPolicyToast, setShowPolicyToast] =
+        useState(false);
 
     const otpInputRefs = useRef<
         Array<HTMLInputElement | null>
@@ -108,6 +131,26 @@ const SignUp = () => {
         .toLowerCase();
 
     const otpCode = otp.join("");
+
+    const isValidEmail =
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+            normalizedEmail
+        );
+
+    const requestedRedirect = searchParams.get("redirect");
+
+    const safeRedirect =
+        requestedRedirect?.startsWith("/") &&
+            !requestedRedirect.startsWith("//") &&
+            !requestedRedirect.startsWith("/\\")
+            ? requestedRedirect
+            : null;
+
+    const signInPath = safeRedirect
+        ? `/customer/sign-in?redirect=${encodeURIComponent(
+            safeRedirect
+        )}`
+        : "/customer/sign-in";
 
     const clearNotifications = () => {
         setError("");
@@ -122,7 +165,7 @@ const SignUp = () => {
         otpInputRefs.current[index]?.focus();
     };
 
-    const getOtpToken = (result: ApiResponse) => {
+    const getOtpToken = (result: ApiResponse): string => {
         return (
             result.otp_token ||
             result.data?.otp_token ||
@@ -130,7 +173,9 @@ const SignUp = () => {
         );
     };
 
-    const getExpiry = (result: ApiResponse) => {
+    const getExpiry = (
+        result: ApiResponse
+    ): number | null => {
         return (
             result.expires_in_seconds ??
             result.data?.expires_in_seconds ??
@@ -138,10 +183,59 @@ const SignUp = () => {
         );
     };
 
+    useEffect(() => {
+        if (!showFeatureToast) return;
+
+        const timeout = window.setTimeout(() => {
+            setShowFeatureToast(false);
+        }, 3500);
+
+        return () => window.clearTimeout(timeout);
+    }, [showFeatureToast]);
+
+    useEffect(() => {
+        if (!showPolicyToast) return;
+
+        const timeout = window.setTimeout(() => {
+            setShowPolicyToast(false);
+        }, 3500);
+
+        return () => window.clearTimeout(timeout);
+    }, [showPolicyToast]);
+
+    const handleBack = () => {
+        if (loading) return;
+
+        if (step === "OTP") {
+            setStep("FORM");
+            resetOtp();
+            setOtpToken("");
+            setExpiresInSeconds(null);
+            clearNotifications();
+            return;
+        }
+
+        navigate(signInPath);
+    };
+
+    const handleSignIn = () => {
+        if (loading) return;
+
+        navigate(signInPath);
+    };
+
+    const handleChangeRegistrationData = () => {
+        if (loading) return;
+
+        setStep("FORM");
+        resetOtp();
+        setOtpToken("");
+        setExpiresInSeconds(null);
+        clearNotifications();
+    };
+
     const handleChange = (
-        e: ChangeEvent<
-            HTMLInputElement | HTMLSelectElement
-        >,
+        e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
     ) => {
         const { name, value } = e.target;
 
@@ -155,20 +249,16 @@ const SignUp = () => {
 
     const validateForm = (): string | null => {
         if (!formData.name_customer.trim()) {
-            return "Nama wajib diisi.";
+            return "Nama lengkap wajib diisi.";
         }
 
-        if (
-            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-                normalizedEmail,
-            )
-        ) {
+        if (!isValidEmail) {
             return "Alamat email tidak valid.";
         }
 
         if (
             !/^\+?[0-9]{8,15}$/.test(
-                formData.phone_number_customer.trim(),
+                formData.phone_number_customer.trim()
             )
         ) {
             return "Nomor telepon harus terdiri dari 8–15 digit.";
@@ -179,7 +269,7 @@ const SignUp = () => {
         }
 
         const dob = new Date(
-            `${formData.dob_customer}T00:00:00`,
+            `${formData.dob_customer}T00:00:00`
         );
 
         if (
@@ -212,21 +302,22 @@ const SignUp = () => {
             setLoading(true);
             clearNotifications();
 
+            // Endpoint dan payload registrasi lama
+            // tetap dipertahankan.
+
             const result = await postAuth(
                 "/customer/sign-up",
                 {
-                    name_customer:
-                        formData.name_customer.trim(),
+                    name_customer: formData.name_customer.trim(),
                     email_customer: normalizedEmail,
                     phone_number_customer:
                         formData.phone_number_customer.trim(),
                     dob_customer: formData.dob_customer,
                     gender_customer: formData.gender_customer,
                     id_platform: 1,
-                },
+                }
             );
 
-            // Simpan otp_token bila dikembalikan backend.
             const receivedOtpToken = getOtpToken(result);
 
             setOtpToken(receivedOtpToken);
@@ -237,13 +328,13 @@ const SignUp = () => {
 
             setMessage(
                 result.message ||
-                "Pendaftaran berhasil. Kode verifikasi telah dikirim ke email Anda.",
+                "Pendaftaran berhasil. Kode verifikasi telah dikirim ke email kamu."
             );
         } catch (err) {
             setError(
                 err instanceof Error
                     ? err.message
-                    : "Gagal melakukan pendaftaran.",
+                    : "Gagal melakukan pendaftaran."
             );
         } finally {
             setLoading(false);
@@ -252,7 +343,7 @@ const SignUp = () => {
 
     const handleOtpChange = (
         e: ChangeEvent<HTMLInputElement>,
-        index: number,
+        index: number
     ) => {
         const value = e.target.value.replace(/\D/g, "");
 
@@ -267,7 +358,8 @@ const SignUp = () => {
             return;
         }
 
-        // Mendukung autofill beberapa digit sekaligus.
+        // Mendukung autofill beberapa digit.
+
         if (value.length > 1) {
             const digits = value
                 .slice(0, OTP_LENGTH - index)
@@ -286,8 +378,8 @@ const SignUp = () => {
             focusOtp(
                 Math.min(
                     index + digits.length,
-                    OTP_LENGTH - 1,
-                ),
+                    OTP_LENGTH - 1
+                )
             );
 
             setError("");
@@ -309,7 +401,7 @@ const SignUp = () => {
 
     const handleOtpKeyDown = (
         e: KeyboardEvent<HTMLInputElement>,
-        index: number,
+        index: number
     ) => {
         if (e.key === "Backspace") {
             e.preventDefault();
@@ -349,7 +441,7 @@ const SignUp = () => {
 
     const handleOtpPaste = (
         e: ClipboardEvent<HTMLInputElement>,
-        index: number,
+        index: number
     ) => {
         e.preventDefault();
 
@@ -363,9 +455,11 @@ const SignUp = () => {
         setOtp((prev) => {
             const next = [...prev];
 
-            pastedCode.split("").forEach((digit, offset) => {
-                next[index + offset] = digit;
-            });
+            pastedCode
+                .split("")
+                .forEach((digit, offset) => {
+                    next[index + offset] = digit;
+                });
 
             return next;
         });
@@ -375,8 +469,8 @@ const SignUp = () => {
         focusOtp(
             Math.min(
                 index + pastedCode.length,
-                OTP_LENGTH - 1,
-            ),
+                OTP_LENGTH - 1
+            )
         );
     };
 
@@ -387,7 +481,7 @@ const SignUp = () => {
 
         if (!/^\d{6}$/.test(otpCode)) {
             setError(
-                "Please enter the complete 6-digit verification code.",
+                "Masukkan kode verifikasi 6 digit secara lengkap."
             );
             return;
         }
@@ -396,8 +490,9 @@ const SignUp = () => {
             setLoading(true);
             clearNotifications();
 
-            // Mengikuti endpoint verifikasi registrasi.
-            // otp_token disertakan jika backend mengembalikannya.
+            // Endpoint verifikasi registrasi tetap sama.
+            // OTP token dikirim apabila backend menyediakannya.
+
             await postAuth(
                 "/customer/verify-otp",
                 {
@@ -406,22 +501,24 @@ const SignUp = () => {
                     ...(otpToken
                         ? { otp_token: otpToken }
                         : {}),
-                },
+                }
             );
 
             setOtpToken("");
             resetOtp();
 
-            // Registrasi selesai, customer login
-            // menggunakan email + OTP.
-            navigate("/customer/sign-in", {
+            // Setelah verifikasi registrasi,
+            // customer login melalui Sign In seperti sebelumnya.
+            // Parameter redirect tetap dipertahankan.
+
+            navigate(signInPath, {
                 replace: true,
             });
         } catch (err) {
             setError(
                 err instanceof Error
                     ? err.message
-                    : "Verifikasi OTP gagal. Silakan coba lagi.",
+                    : "Verifikasi OTP gagal. Silakan coba lagi."
             );
         } finally {
             setLoading(false);
@@ -439,8 +536,8 @@ const SignUp = () => {
                 "/customer/resend-otp",
                 {
                     email_customer: normalizedEmail,
-                    purpose: "REGISTER"
-                },
+                    purpose: "REGISTER",
+                }
             );
 
             const newOtpToken = getOtpToken(result);
@@ -450,19 +547,22 @@ const SignUp = () => {
             }
 
             setExpiresInSeconds(getExpiry(result));
+
             resetOtp();
 
             setMessage(
                 result.message ||
-                "Kode OTP baru telah dikirim ke email Anda.",
+                "Kode OTP baru telah dikirim ke email kamu."
             );
 
-            focusOtp(0);
+            window.setTimeout(() => {
+                focusOtp(0);
+            }, 0);
         } catch (err) {
             setError(
                 err instanceof Error
                     ? err.message
-                    : "Gagal mengirim ulang kode OTP.",
+                    : "Gagal mengirim ulang kode OTP."
             );
         } finally {
             setLoading(false);
@@ -470,116 +570,161 @@ const SignUp = () => {
     };
 
     const inputClass =
-        "w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100";
+        "h-[50px] w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50";
 
     const labelClass =
-        "mb-2 block text-sm font-medium text-gray-700";
+        "mb-2 block text-xs font-bold text-[#002E69]";
 
     const buttonClass =
-        "flex w-full cursor-pointer items-center justify-center rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400";
+        "flex h-[52px] w-full cursor-pointer items-center justify-center rounded-xl bg-[#0866D8] px-4 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-[#B7CAE4] disabled:text-white";
+
+    const renderError = () => {
+        if (!error) return null;
+
+        return (
+            <div
+                role="alert"
+                className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3"
+            >
+                <AlertCircle
+                    size={19}
+                    className="mt-0.5 shrink-0 text-red-600"
+                />
+
+                <p className="text-sm leading-relaxed text-red-700">
+                    {error}
+                </p>
+            </div>
+        );
+    };
+
+    const renderMessage = () => {
+        if (!message) return null;
+
+        return (
+            <div
+                role="status"
+                className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3"
+            >
+                <CheckCircle2
+                    size={19}
+                    className="mt-0.5 shrink-0 text-emerald-600"
+                />
+
+                <p className="text-sm leading-relaxed text-emerald-700">
+                    {message}
+                </p>
+            </div>
+        );
+    };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10">
-            <div
-                className={`w-full ${step === "FORM"
-                    ? "max-w-lg"
-                    : "max-w-md"
-                    }`}
-            >
-                <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
-                    {/* LOGO */}
+        <div className="min-h-screen bg-white text-slate-900">
+            {(showFeatureToast || showPolicyToast) && (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    className="fixed left-1/2 top-5 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2"
+                >
+                    <div className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-white px-4 py-3 shadow-xl">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                            <Info size={19} />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-slate-900">
+                                Fitur belum tersedia
+                            </p>
+
+                            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                                {showFeatureToast
+                                    ? "Pendaftaran melalui asuransi atau benefit kantor belum tersedia saat ini."
+                                    : "Halaman Syarat & Ketentuan dan Kebijakan Privasi belum tersedia saat ini."}
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setShowFeatureToast(false);
+                                setShowPolicyToast(false);
+                            }}
+                            aria-label="Tutup notifikasi"
+                            className="shrink-0 cursor-pointer text-slate-400 hover:text-slate-700"
+                        >
+                            <X size={17} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <header className="border-b border-slate-200 bg-white">
+                <div className="mx-auto flex h-14 w-full max-w-lg items-center px-4">
+                    <button
+                        type="button"
+                        onClick={handleBack}
+                        disabled={loading}
+                        aria-label="Kembali"
+                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        <ArrowLeft
+                            size={21}
+                            strokeWidth={1.9}
+                        />
+                    </button>
+                </div>
+            </header>
+
+            <main className="mx-auto flex min-h-[calc(100vh-56px)] w-full max-w-lg flex-col px-6 pb-6 pt-4">
+                {/* LOGO */}
+                <div>
                     <img
                         src={logo}
-                        alt="STIQR Hub Health"
-                        className="mx-auto h-20 w-20 rounded-xl object-cover"
+                        alt="STIQR Health"
+                        className="h-18 w-18 object-contain"
                     />
+                </div>
 
-                    {/* HEADER */}
-                    <div className="mb-8 mt-5 text-center">
-                        <h1 className="text-2xl font-semibold text-gray-900">
-                            {step === "FORM"
-                                ? "Create Account"
-                                : "Verify Your Email"}
-                        </h1>
+                {/* PAGE TITLE */}
+                <div className="mt-4">
+                    <h1 className="text-[27px] font-bold leading-tight tracking-tight text-[#00357A]">
+                        {step === "FORM"
+                            ? "Buat akun STIQR Health"
+                            : "Cek email kamu"}
+                    </h1>
 
-                        {step === "FORM" ? (
-                            <p className="mt-2 text-sm leading-relaxed text-gray-500">
-                                Create your StiqrHub Health account
-                                without a password.
+                    {step === "FORM" ? (
+                        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                            Daftar tanpa password. Lengkapi data diri,
+                            lalu verifikasi email kamu menggunakan kode OTP.
+                        </p>
+                    ) : (
+                        <div className="mt-2">
+                            <p className="text-sm leading-relaxed text-slate-600">
+                                Kode verifikasi 6 digit telah dikirim ke:
                             </p>
-                        ) : (
-                            <div className="mt-3 space-y-1">
-                                <p className="text-sm text-gray-500">
-                                    We've sent a 6-digit verification code to
-                                </p>
 
-                                <p className="break-all text-sm font-semibold text-gray-900">
-                                    {normalizedEmail}
-                                </p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* ERROR NOTIFICATION */}
-                    {error && (
-                        <div
-                            role="alert"
-                            className="mb-5 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3"
-                        >
-                            <AlertCircle
-                                size={19}
-                                className="mt-0.5 shrink-0 text-red-600"
-                            />
-
-                            <div>
-                                <p className="text-sm font-semibold text-red-700">
-                                    {step === "FORM"
-                                        ? "Registration Failed"
-                                        : "Verification Failed"}
-                                </p>
-
-                                <p className="mt-1 text-sm leading-relaxed text-red-600">
-                                    {error}
-                                </p>
-                            </div>
+                            <p className="mt-1 break-all text-sm font-semibold text-slate-900">
+                                {normalizedEmail}
+                            </p>
                         </div>
                     )}
+                </div>
 
-                    {/* SUCCESS NOTIFICATION */}
-                    {message && (
-                        <div
-                            role="status"
-                            className="mb-5 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3"
-                        >
-                            <CheckCircle2
-                                size={19}
-                                className="mt-0.5 shrink-0 text-green-600"
-                            />
-
-                            <div>
-                                <p className="text-sm font-semibold text-green-700">
-                                    Verification Code Sent
-                                </p>
-
-                                <p className="mt-1 text-sm leading-relaxed text-green-700">
-                                    {message}
-                                </p>
-                            </div>
-                        </div>
-                    )}
-
-                    {step === "FORM" && (
-                        <form
-                            onSubmit={handleSignUp}
-                            className="space-y-5"
-                        >
+                {step === "FORM" && (
+                    <form
+                        id="customer-sign-up-form"
+                        onSubmit={handleSignUp}
+                        className="mt-6 flex flex-1 flex-col"
+                    >
+                        <div className="space-y-5">
                             {/* FULL NAME */}
                             <div>
                                 <label
                                     htmlFor="name_customer"
                                     className={labelClass}
                                 >
-                                    Full Name
+                                    Nama lengkap
                                 </label>
 
                                 <input
@@ -590,7 +735,7 @@ const SignUp = () => {
                                     required
                                     value={formData.name_customer}
                                     onChange={handleChange}
-                                    placeholder="Enter your full name"
+                                    placeholder="Masukkan nama lengkap kamu"
                                     disabled={loading}
                                     className={inputClass}
                                 />
@@ -610,10 +755,11 @@ const SignUp = () => {
                                     name="email_customer"
                                     type="email"
                                     autoComplete="email"
+                                    inputMode="email"
                                     required
                                     value={formData.email_customer}
                                     onChange={handleChange}
-                                    placeholder="Enter your email"
+                                    placeholder="nama@email.com"
                                     disabled={loading}
                                     className={inputClass}
                                 />
@@ -625,7 +771,7 @@ const SignUp = () => {
                                     htmlFor="phone_number_customer"
                                     className={labelClass}
                                 >
-                                    Phone Number
+                                    Nomor telepon
                                 </label>
 
                                 <input
@@ -633,6 +779,7 @@ const SignUp = () => {
                                     name="phone_number_customer"
                                     type="tel"
                                     autoComplete="tel"
+                                    inputMode="tel"
                                     required
                                     value={formData.phone_number_customer}
                                     onChange={handleChange}
@@ -642,16 +789,16 @@ const SignUp = () => {
                                 />
                             </div>
 
-                            {/* DATE OF BIRTH & GENDER */}
-                            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                                <div>
-                                    <label
-                                        htmlFor="dob_customer"
-                                        className={labelClass}
-                                    >
-                                        Date of Birth
-                                    </label>
+                            {/* DATE OF BIRTH */}
+                            <div>
+                                <label
+                                    htmlFor="dob_customer"
+                                    className={labelClass}
+                                >
+                                    Tanggal lahir
+                                </label>
 
+                                <div className="relative">
                                     <input
                                         id="dob_customer"
                                         name="dob_customer"
@@ -659,59 +806,130 @@ const SignUp = () => {
                                         required
                                         value={formData.dob_customer}
                                         onChange={handleChange}
-                                        max={new Date()
-                                            .toLocaleDateString("en-CA")}
+                                        max={new Date().toLocaleDateString("en-CA")}
                                         disabled={loading}
                                         className={inputClass}
                                     />
                                 </div>
-
-                                <div>
-                                    <label
-                                        htmlFor="gender_customer"
-                                        className={labelClass}
-                                    >
-                                        Gender
-                                    </label>
-
-                                    <select
-                                        id="gender_customer"
-                                        name="gender_customer"
-                                        required
-                                        value={formData.gender_customer}
-                                        onChange={handleChange}
-                                        disabled={loading}
-                                        className={`${inputClass} bg-white`}
-                                    >
-                                        <option value="">
-                                            Select gender
-                                        </option>
-
-                                        <option value="male">
-                                            Male
-                                        </option>
-
-                                        <option value="female">
-                                            Female
-                                        </option>
-                                    </select>
-                                </div>
                             </div>
 
-                            {/* REGISTRATION INFO */}
-                            <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
-                                <ShieldCheck
-                                    size={19}
-                                    className="mt-0.5 shrink-0 text-blue-600"
+                            {/* GENDER */}
+                            <div>
+                                <label
+                                    htmlFor="gender_customer"
+                                    className={labelClass}
+                                >
+                                    Jenis kelamin
+                                </label>
+
+                                <select
+                                    id="gender_customer"
+                                    name="gender_customer"
+                                    required
+                                    value={formData.gender_customer}
+                                    onChange={handleChange}
+                                    disabled={loading}
+                                    className={inputClass}
+                                >
+                                    <option value="">
+                                        Pilih jenis kelamin
+                                    </option>
+
+                                    {/* Values mengikuti API yang sudah ada. */}
+                                    <option value="male">
+                                        Laki-laki
+                                    </option>
+
+                                    <option value="female">
+                                        Perempuan
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* ERROR */}
+                        {error && (
+                            <div className="mt-5">
+                                {renderError()}
+                            </div>
+                        )}
+
+                        {/* REGISTRATION INFORMATION */}
+                        <div className="mt-6 space-y-3">
+                            <div className="flex items-start gap-3">
+                                <CheckCircle2
+                                    size={16}
+                                    className="mt-0.5 shrink-0 text-emerald-600"
                                 />
 
-                                <p className="text-sm leading-relaxed text-blue-700">
-                                    Your account will be verified using a
-                                    one-time password sent to your email.
+                                <p className="text-xs leading-relaxed text-[#003168]">
+                                    Satu email untuk satu akun.
+                                    Health Pass dan bukti pembayaran
+                                    akan dikirim ke email kamu.
                                 </p>
                             </div>
 
-                            {/* SUBMIT */}
+                            <div className="flex items-start gap-3">
+                                <CheckCircle2
+                                    size={16}
+                                    className="mt-0.5 shrink-0 text-emerald-600"
+                                />
+
+                                <p className="text-xs leading-relaxed text-[#003168]">
+                                    Akun diverifikasi melalui kode OTP
+                                    yang dikirim ke email, tanpa password.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* INSURANCE DIVIDER */}
+                        <div className="my-7 flex items-center gap-3">
+                            <div className="h-px flex-1 bg-slate-200" />
+
+                            <span className="text-xs font-semibold text-slate-500">
+                                atau
+                            </span>
+
+                            <div className="h-px flex-1 bg-slate-200" />
+                        </div>
+
+                        {/* INSURANCE / OFFICE BENEFIT */}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setShowFeatureToast(true);
+                                setShowPolicyToast(false);
+                            }}
+                            className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left transition hover:border-blue-200 hover:bg-slate-50 active:scale-[0.99]"
+                        >
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-teal-600">
+                                <ShieldCheck
+                                    size={22}
+                                    strokeWidth={1.9}
+                                />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold text-[#002E69]">
+                                    Pakai asuransi / benefit kantor
+                                </p>
+
+                                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                                    Hubungkan kartu untuk menggunakan benefit
+                                </p>
+                            </div>
+
+                            <ChevronRight
+                                size={19}
+                                className="shrink-0 text-[#002E69]"
+                            />
+                        </button>
+
+                        {/* BOTTOM SPACER */}
+                        <div className="min-h-8 flex-1" />
+
+                        {/* SUBMIT AND SIGN IN */}
+                        <div className="mt-8 space-y-4">
                             <button
                                 type="submit"
                                 disabled={loading}
@@ -720,108 +938,159 @@ const SignUp = () => {
                                 {loading ? (
                                     <>
                                         <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                        Creating account...
+                                        Mengirim kode OTP...
                                     </>
                                 ) : (
-                                    "Create Account & Send OTP"
+                                    "Daftar & Kirim kode OTP"
                                 )}
                             </button>
-                        </form>
-                    )}
 
-                    {step === "OTP" && (
-                        <form
-                            onSubmit={handleVerifyOtp}
-                            className="space-y-6"
-                        >
-                            {/* VERIFICATION ICON */}
-                            <div className="flex justify-center">
-                                <div className="rounded-full bg-blue-50 p-4">
-                                    <MailCheck
-                                        size={30}
-                                        className="text-blue-600"
-                                    />
-                                </div>
-                            </div>
+                            <div className="flex flex-wrap items-center justify-center gap-1 text-sm">
+                                <span className="text-slate-500">
+                                    Sudah punya akun?
+                                </span>
 
-                            {/* OTP BOXES */}
-                            <div className="space-y-3">
-                                <label className="block text-center text-sm font-medium text-gray-700">
-                                    Verification Code
-                                </label>
-
-                                <div
-                                    role="group"
-                                    aria-label="6-digit verification code"
-                                    className="flex w-full justify-center gap-2 sm:gap-3"
+                                <button
+                                    type="button"
+                                    onClick={handleSignIn}
+                                    disabled={loading}
+                                    className="cursor-pointer font-bold text-[#0866D8] hover:underline disabled:opacity-50"
                                 >
-                                    {otp.map((digit, index) => (
-                                        <input
-                                            key={index}
-                                            ref={(element) => {
-                                                otpInputRefs.current[index] =
-                                                    element;
-                                            }}
-                                            type="text"
-                                            inputMode="numeric"
-                                            pattern="[0-9]*"
-                                            maxLength={6}
-                                            autoComplete={
-                                                index === 0
-                                                    ? "one-time-code"
-                                                    : "off"
-                                            }
-                                            aria-label={`OTP digit ${index + 1}`}
-                                            autoFocus={index === 0}
-                                            value={digit}
-                                            disabled={loading}
-                                            onChange={(e) =>
-                                                handleOtpChange(e, index)
-                                            }
-                                            onKeyDown={(e) =>
-                                                handleOtpKeyDown(e, index)
-                                            }
-                                            onPaste={(e) =>
-                                                handleOtpPaste(e, index)
-                                            }
-                                            onFocus={(e) =>
-                                                e.target.select()
-                                            }
-                                            className="
-                                                h-12 w-10 min-w-0 rounded-xl
-                                                border border-gray-300 bg-white
-                                                text-center text-xl font-semibold
-                                                text-gray-900 outline-none transition
-                                                focus:border-blue-500
-                                                focus:ring-2 focus:ring-blue-100
-                                                disabled:cursor-not-allowed
-                                                disabled:bg-gray-100
-                                                sm:h-14 sm:w-12
-                                            "
-                                        />
-                                    ))}
-                                </div>
-
-                                <p className="text-center text-xs leading-relaxed text-gray-500">
-                                    Enter the verification code from your email.
-                                    Do not share this code with anyone.
-                                </p>
-
-                                {expiresInSeconds !== null && (
-                                    <p className="text-center text-xs text-gray-500">
-                                        Code validity:{" "}
-                                        <span className="font-medium text-gray-700">
-                                            {Math.ceil(
-                                                expiresInSeconds / 60,
-                                            )}{" "}
-                                            minutes
-                                        </span>
-                                        {" "}from the time it was issued.
-                                    </p>
-                                )}
+                                    Masuk sekarang
+                                </button>
                             </div>
 
-                            {/* VERIFY BUTTON */}
+                            <p className="text-center text-[11px] leading-relaxed text-slate-500">
+                                Dengan mendaftar, kamu menyetujui{" "}
+                                <button
+                                    type="button"
+                                    onClick={() => navigate("/customer/terms-conditions")}
+                                    className="cursor-pointer font-medium text-blue-600 underline underline-offset-2"
+                                >
+                                    Syarat & Ketentuan
+                                </button>{" "}
+                                dan{" "}
+                                <button
+                                    type="button"
+                                    onClick={() => navigate("/customer/privacy-policy")}
+                                    className="cursor-pointer font-medium text-blue-600 underline underline-offset-2"
+                                >
+                                    Kebijakan Privasi
+                                </button>
+                                .
+                            </p>
+                        </div>
+                    </form>
+                )}
+
+                {step === "OTP" && (
+                    <form
+                        id="customer-sign-up-otp-form"
+                        onSubmit={handleVerifyOtp}
+                        className="mt-6 flex flex-1 flex-col"
+                    >
+                        {/* OTP LABEL */}
+                        <label className="mt-6 block text-sm font-bold text-[#002E69]">
+                            Kode verifikasi
+                        </label>
+
+                        {/* OTP INPUTS */}
+                        <div
+                            role="group"
+                            aria-label="Kode verifikasi 6 digit"
+                            className="mt-3 grid w-full grid-cols-6 gap-2"
+                        >
+                            {otp.map((digit, index) => (
+                                <input
+                                    key={index}
+                                    ref={(element) => {
+                                        otpInputRefs.current[index] = element;
+                                    }}
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    maxLength={6}
+                                    autoComplete={
+                                        index === 0
+                                            ? "one-time-code"
+                                            : "off"
+                                    }
+                                    aria-label={`Digit OTP ${index + 1}`}
+                                    value={digit}
+                                    disabled={loading}
+                                    onChange={(event) =>
+                                        handleOtpChange(event, index)
+                                    }
+                                    onKeyDown={(event) =>
+                                        handleOtpKeyDown(event, index)
+                                    }
+                                    onPaste={(event) =>
+                                        handleOtpPaste(event, index)
+                                    }
+                                    onFocus={(event) =>
+                                        event.target.select()
+                                    }
+                                    className="h-14 min-w-0 w-full rounded-xl border border-slate-300 bg-white text-center text-xl font-bold text-[#00357A] outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                                />
+                            ))}
+                        </div>
+
+                        {/* OTP INFORMATION */}
+                        <p className="mt-4 text-xs leading-relaxed text-slate-500">
+                            Masukkan kode enam digit yang dikirim
+                            ke email kamu. Jangan berikan kode ini
+                            kepada siapa pun, termasuk pihak STIQR.
+                        </p>
+
+                        {/* SERVER OTP EXPIRY */}
+                        {expiresInSeconds !== null && (
+                            <p className="mt-2 text-xs text-slate-500">
+                                Kode berlaku selama{" "}
+                                <span className="font-semibold text-slate-700">
+                                    {Math.ceil(
+                                        expiresInSeconds / 60
+                                    )}{" "}
+                                    menit
+                                </span>{" "}
+                                sejak diterbitkan.
+                            </p>
+                        )}
+
+                        {/* ERROR AND MESSAGE */}
+                        {error && (
+                            <div className="mt-5">
+                                {renderError()}
+                            </div>
+                        )}
+
+                        {message && (
+                            <div className="mt-5">
+                                {renderMessage()}
+                            </div>
+                        )}
+
+                        {/* RESEND OTP */}
+                        <div className="mt-7 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <p className="text-center text-sm text-slate-600">
+                                Belum menerima kode?
+                            </p>
+
+                            <button
+                                type="button"
+                                onClick={handleResendOtp}
+                                disabled={loading}
+                                className="mx-auto mt-3 flex cursor-pointer items-center justify-center gap-2 text-sm font-bold text-blue-600 transition hover:text-blue-700 disabled:opacity-50"
+                            >
+                                <RefreshCw size={16} />
+                                Kirim ulang kode OTP
+                            </button>
+                        </div>
+
+                        {/* BOTTOM SPACER */}
+                        <div className="min-h-12 flex-1" />
+
+                        {/* VERIFY BUTTON */}
+                        <div className="mt-8 space-y-3">
                             <button
                                 type="submit"
                                 disabled={
@@ -833,49 +1102,25 @@ const SignUp = () => {
                                 {loading ? (
                                     <>
                                         <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                        Verifying...
+                                        Memverifikasi...
                                     </>
                                 ) : (
-                                    "Verify Email"
+                                    "Verifikasi & Selesaikan Pendaftaran"
                                 )}
                             </button>
 
-                            {/* RESEND OTP */}
-                            <div className="text-center">
-                                <p className="text-sm text-gray-500">
-                                    Didn't receive the code?
-                                </p>
-
-                                <button
-                                    type="button"
-                                    onClick={handleResendOtp}
-                                    disabled={loading}
-                                    className="mt-2 inline-flex cursor-pointer items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    <RefreshCw size={15} />
-                                    Resend Verification Code
-                                </button>
-                            </div>
-                        </form>
-                    )}
-
-                    {/* SIGN IN LINK */}
-                    <div className="mt-5 border-t border-gray-100 pt-6 text-center">
-                        <p className="text-sm text-gray-500">
-                            Already have an account?{" "}
                             <button
                                 type="button"
-                                onClick={() =>
-                                    navigate("/customer/sign-in")
-                                }
-                                className="cursor-pointer font-medium text-blue-600 hover:text-blue-700"
+                                onClick={handleChangeRegistrationData}
+                                disabled={loading}
+                                className="w-full cursor-pointer py-2 text-center text-sm font-semibold text-slate-500 hover:text-blue-600 disabled:opacity-50"
                             >
-                                Sign In
+                                Ubah data pendaftaran
                             </button>
-                        </p>
-                    </div>
-                </div>
-            </div>
+                        </div>
+                    </form>
+                )}
+            </main>
         </div>
     );
 };
