@@ -1482,7 +1482,7 @@ const Booking = () => {
                                 Ringkasan Pesanan
                             </h2>
 
-                            <h3 className="text-lg font-extrabold text-slate-900">
+                            <h3 className="text-lg font-bold text-slate-900">
                                 {service.name_service}
                             </h3>
 
@@ -1578,7 +1578,7 @@ const Booking = () => {
                                         Total sementara
                                     </span>
 
-                                    <span className="text-xl font-extrabold text-blue-700">
+                                    <span className="text-xl font-bold text-blue-700">
                                         {formatCurrency(totalPrice)}
                                     </span>
                                 </div>
