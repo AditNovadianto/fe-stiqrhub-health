@@ -31,6 +31,7 @@ import PersonalData from './components/customers/PersonalData.tsx'
 import PrivacyPolicy from './components/customers/PrivacyPolicy.tsx'
 import TermsConditions from './components/customers/TermsConditions.tsx'
 import UserConsent from './components/customers/UserConsent.tsx'
+import Payment from './components/customers/Payment.tsx'
 
 const router = createBrowserRouter([
   {
@@ -74,6 +75,10 @@ const router = createBrowserRouter([
           {
             path: "booking/:id_service",
             element: <Booking />,
+          },
+          {
+            path: "payment",
+            element: <Payment />,
           },
           {
             path: "history",

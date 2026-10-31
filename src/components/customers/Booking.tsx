@@ -22,7 +22,6 @@ import {
     ShieldCheck,
     UserRound,
     Users,
-    Wallet,
 } from "lucide-react";
 
 import { isTokenExpired } from "../../utils/auth";
@@ -695,6 +694,55 @@ const Booking = () => {
             behavior: "smooth",
         });
     };
+
+    const handleProceedToPayment = () => {
+        setError("");
+        const validationError = validatePatient();
+        if (validationError) {
+            setError(validationError);
+            return;
+        }
+        if (!isScheduleValid || !service || !customer) {
+            setError("Jadwal atau layanan tidak valid. Silakan pilih ulang.");
+            return;
+        }
+
+        // Transaksi sebelumnya tidak boleh ditimpa. Kembali ke layar QRIS existing.
+        const previousPaymentRaw = sessionStorage.getItem("stiqr_health_qris_payment");
+        const previousAttempt = sessionStorage.getItem("stiqr_health_qris_attempt");
+        if (previousPaymentRaw || previousAttempt) {
+            navigate("/customer/payment");
+            return;
+        }
+
+        const checkout = {
+            id_service: service.id_service,
+            service_name: service.name_service,
+            provider_name: service.name_provider ?? "",
+            display_amount: Number(service.price_service),
+            booking_at: `${selectedDate}T${selectedTime}:00+07:00`,
+            booking_display: `${formatDate(selectedDate)}, ${selectedTime} WIB`,
+            recipient,
+            patient_name: patientNameForCheckout(),
+            patient_email: patientEmailForCheckout(),
+            id_guest: recipient === "GUEST" && guestMode === "SAVED"
+                ? Number(selectedGuestId)
+                : null,
+            guest_form: recipient === "GUEST" && guestMode === "NEW"
+                ? { ...guestForm }
+                : null,
+        };
+        sessionStorage.setItem("stiqr_health_qris_checkout", JSON.stringify(checkout));
+        navigate("/customer/payment");
+    };
+
+    const patientNameForCheckout = () => recipient === "SELF"
+        ? customer?.name_customer ?? ""
+        : guestPreview.name_guest;
+
+    const patientEmailForCheckout = () => recipient === "SELF"
+        ? customer?.email_customer ?? ""
+        : guestPreview.email_guest;
 
     const handleBack = () => {
         setError("");
@@ -1587,115 +1635,45 @@ const Booking = () => {
 
                         {/* PAYMENT METHODS */}
                         <section className={cardClass}>
-                            <div className="mb-5 flex items-center justify-between gap-3">
-                                <h2 className="text-base font-bold text-slate-900">
-                                    Metode Pembayaran
-                                </h2>
-
-                                <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                                    Segera Hadir
-                                </span>
-                            </div>
-
+                            <h2 className="mb-4 text-base font-bold text-slate-900">
+                                Metode Pembayaran
+                            </h2>
                             <div className="space-y-3">
-                                {/* DANA */}
-                                <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 opacity-70">
-                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                                        <Wallet size={22} />
-                                    </div>
-
-                                    <div className="flex-1">
-                                        <p className="text-sm font-bold text-slate-800">
-                                            DANA
-                                        </p>
-
-                                        <p className="mt-1 text-xs text-slate-500">
-                                            Pembayaran melalui DANA
-                                        </p>
-                                    </div>
-
-                                    <LockKeyhole
-                                        size={17}
-                                        className="text-slate-400"
-                                    />
-                                </div>
-
-                                {/* NOBU VA */}
-                                <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 opacity-70">
-                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                                <div aria-disabled="true" className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 opacity-60">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-200 text-slate-500">
                                         <CreditCard size={22} />
                                     </div>
-
                                     <div className="flex-1">
-                                        <p className="text-sm font-bold text-slate-800">
-                                            NOBU Virtual Account
-                                        </p>
-
-                                        <p className="mt-1 text-xs text-slate-500">
-                                            Pembayaran melalui Virtual Account
-                                        </p>
+                                        <p className="font-semibold text-slate-700">VA</p>
+                                        <p className="text-xs text-slate-500">Belum tersedia</p>
                                     </div>
-
-                                    <LockKeyhole
-                                        size={17}
-                                        className="text-slate-400"
-                                    />
+                                    <LockKeyhole size={18} className="text-slate-400" />
                                 </div>
-
-                                {/* NOBU QRIS */}
-                                <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 opacity-70">
-                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                                <div className="flex items-center gap-4 rounded-xl border-2 border-blue-600 bg-blue-50 p-4">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
                                         <QrCode size={22} />
                                     </div>
-
                                     <div className="flex-1">
-                                        <p className="text-sm font-bold text-slate-800">
-                                            NOBU QRIS
-                                        </p>
-
-                                        <p className="mt-1 text-xs text-slate-500">
-                                            Pembayaran melalui QRIS
-                                        </p>
+                                        <p className="font-bold text-blue-900">QRIS</p>
+                                        <p className="text-xs text-blue-700">Bayar dengan aplikasi pembayaran yang mendukung QRIS</p>
                                     </div>
-
-                                    <LockKeyhole
-                                        size={17}
-                                        className="text-slate-400"
-                                    />
+                                    <CheckCircle2 size={20} className="text-blue-600" />
                                 </div>
                             </div>
                         </section>
 
-                        {/* INFORMATION */}
                         <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
-                            <ShieldCheck
-                                size={20}
-                                className="mt-0.5 shrink-0 text-blue-600"
-                            />
-
+                            <ShieldCheck size={20} className="mt-0.5 shrink-0 text-blue-600" />
                             <p className="text-xs leading-relaxed text-blue-800">
-                                Health Pass akan diterbitkan setelah
-                                pembayaran berhasil. Untuk saat ini,
-                                pembayaran melalui DANA, NOBU Virtual
-                                Account, dan NOBU QRIS belum tersedia
-                                pada website.
+                                Setelah melanjutkan, kamu akan diarahkan ke halaman pembayaran QRIS.
+                                Health Pass diterbitkan setelah pembayaran dikonfirmasi oleh sistem.
                             </p>
                         </div>
 
-                        {/* DISABLED PAYMENT BUTTON */}
-                        <button
-                            type="button"
-                            disabled
-                            className="flex min-h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-300 px-5 py-3 text-sm font-bold text-white"
-                        >
-                            <LockKeyhole size={18} />
-                            Pembayaran Belum Tersedia
+                        <button type="button" onClick={handleProceedToPayment} className={primaryButton}>
+                            Lanjutkan ke Pembayaran
+                            <ChevronRight size={18} />
                         </button>
-
-                        <p className="text-center text-xs text-slate-500">
-                            Pesanan belum dibuat dan belum ada
-                            transaksi pembayaran.
-                        </p>
                     </div>
                 )}
             </div>
