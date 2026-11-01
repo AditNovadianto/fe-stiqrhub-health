@@ -347,7 +347,7 @@ const SummaryCard = ({
                 {loading ? (
                     <div className="mt-4 h-9 w-20 animate-pulse rounded-lg bg-blue-50" />
                 ) : (
-                    <h3 className="mt-3 wrap-break-word text-2xl font-extrabold text-slate-900">
+                    <h3 className="mt-3 wrap-break-word text-2xl font-bold text-slate-900">
                         {value}
                     </h3>
                 )}
@@ -715,7 +715,7 @@ const Redemptions = () => {
                             Provider Portal
                         </p>
 
-                        <h1 className="mt-2 text-2xl font-extrabold text-slate-900 lg:text-3xl">
+                        <h1 className="mt-2 text-2xl font-bold text-slate-900 lg:text-3xl">
                             Redemptions
                         </h1>
 
@@ -795,7 +795,7 @@ const Redemptions = () => {
                     <div className="border-b border-blue-100 p-5">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <h2 className="text-lg font-extrabold text-slate-900">
+                                <h2 className="text-lg font-bold text-slate-900">
                                     Riwayat Redemption
                                 </h2>
 
@@ -1212,7 +1212,7 @@ const Redemptions = () => {
                             <div>
                                 <h2
                                     id="redemption-detail-title"
-                                    className="text-lg font-extrabold text-slate-900"
+                                    className="text-lg font-bold text-slate-900"
                                 >
                                     Detail Health Pass
                                 </h2>
@@ -1252,7 +1252,7 @@ const Redemptions = () => {
                                 </div>
 
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-extrabold text-slate-900">
+                                    <p className="text-sm font-bold text-slate-900">
                                         {selectedPass.name_service || "-"}
                                     </p>
 
@@ -1277,7 +1277,7 @@ const Redemptions = () => {
 
                             {/* CUSTOMER DETAILS */}
                             <section>
-                                <h3 className="mb-3 text-sm font-extrabold text-slate-900">
+                                <h3 className="mb-3 text-sm font-bold text-slate-900">
                                     Informasi Customer
                                 </h3>
 
@@ -1304,7 +1304,7 @@ const Redemptions = () => {
 
                             {/* HEALTH PASS DETAILS */}
                             <section>
-                                <h3 className="mb-3 text-sm font-extrabold text-slate-900">
+                                <h3 className="mb-3 text-sm font-bold text-slate-900">
                                     Informasi Health Pass
                                 </h3>
 
@@ -1343,7 +1343,7 @@ const Redemptions = () => {
 
                             {/* REDEMPTION DETAILS */}
                             <section>
-                                <h3 className="mb-3 text-sm font-extrabold text-slate-900">
+                                <h3 className="mb-3 text-sm font-bold text-slate-900">
                                     Informasi Redemption
                                 </h3>
 

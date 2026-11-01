@@ -628,7 +628,7 @@ const ScanHealthPasses = () => {
                             Health Pass Verification
                         </p>
 
-                        <h1 className="mt-2 text-2xl font-extrabold text-slate-900 lg:text-3xl">
+                        <h1 className="mt-2 text-2xl font-bold text-slate-900 lg:text-3xl">
                             Scan Health Pass
                         </h1>
 
@@ -705,7 +705,7 @@ const ScanHealthPasses = () => {
                             </div>
 
                             <div>
-                                <h2 className="text-lg font-extrabold text-slate-900">
+                                <h2 className="text-lg font-bold text-slate-900">
                                     Verifikasi Health Pass
                                 </h2>
 
@@ -791,7 +791,7 @@ const ScanHealthPasses = () => {
                                                     <QrCodeIllustration />
                                                 </div>
 
-                                                <h3 className="mt-5 text-base font-extrabold text-slate-900">
+                                                <h3 className="mt-5 text-base font-bold text-slate-900">
                                                     Scan QR Code Customer
                                                 </h3>
 
@@ -827,7 +827,7 @@ const ScanHealthPasses = () => {
                                         <Keyboard size={27} />
                                     </div>
 
-                                    <h3 className="mt-4 text-base font-extrabold text-slate-900">
+                                    <h3 className="mt-4 text-base font-bold text-slate-900">
                                         Input ID Health Pass
                                     </h3>
 
@@ -894,7 +894,7 @@ const ScanHealthPasses = () => {
                     </div>
 
                     <div className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
-                        <h2 className="text-lg font-extrabold text-slate-900">
+                        <h2 className="text-lg font-bold text-slate-900">
                             Cara Penggunaan
                         </h2>
 
@@ -929,7 +929,7 @@ const ScanHealthPasses = () => {
                                     key={step.number}
                                     className="flex items-start gap-3"
                                 >
-                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-xs font-extrabold text-blue-600">
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-xs font-bold text-blue-600">
                                         {step.number}
                                     </div>
 
@@ -984,7 +984,7 @@ const ScanHealthPasses = () => {
                                         <div>
                                             <h2
                                                 id="verify-pass-title"
-                                                className="text-lg font-extrabold text-slate-900"
+                                                className="text-lg font-bold text-slate-900"
                                             >
                                                 Health Pass Valid
                                             </h2>
@@ -1145,7 +1145,7 @@ const ScanHealthPasses = () => {
 
                         <h2
                             id="redeem-success-title"
-                            className="mt-5 text-2xl font-extrabold text-slate-900"
+                            className="mt-5 text-2xl font-bold text-slate-900"
                         >
                             Redeem Berhasil!
                         </h2>

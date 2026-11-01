@@ -285,7 +285,7 @@ const FormSection = ({
             </div>
 
             <div className="min-w-0">
-                <h3 className="text-sm font-extrabold text-slate-900">
+                <h3 className="text-sm font-bold text-slate-900">
                     {title}
                 </h3>
 
@@ -420,7 +420,7 @@ const ServiceFormModal = ({
                         <div className="min-w-0">
                             <h2
                                 id={createId("title")}
-                                className="text-lg font-extrabold text-slate-900 sm:text-xl"
+                                className="text-lg font-bold text-slate-900 sm:text-xl"
                             >
                                 {isEdit
                                     ? "Edit Layanan"
@@ -1497,7 +1497,7 @@ const Services = () => {
                             Provider Portal
                         </p>
 
-                        <h1 className="mt-2 text-2xl font-extrabold text-slate-900 lg:text-3xl">
+                        <h1 className="mt-2 text-2xl font-bold text-slate-900 lg:text-3xl">
                             Services
                         </h1>
 
@@ -1606,7 +1606,7 @@ const Services = () => {
                                             {item.label}
                                         </p>
 
-                                        <h2 className="mt-3 text-3xl font-extrabold text-slate-900">
+                                        <h2 className="mt-3 text-3xl font-bold text-slate-900">
                                             {loading || errorMessage
                                                 ? "—"
                                                 : item.value}
@@ -1627,7 +1627,7 @@ const Services = () => {
                     <div className="border-b border-blue-100 p-5">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <h2 className="text-lg font-extrabold text-slate-900">
+                                <h2 className="text-lg font-bold text-slate-900">
                                     Daftar Layanan
                                 </h2>
                                 <p className="mt-1 text-xs text-slate-500">
@@ -1933,7 +1933,7 @@ const Services = () => {
 
                         <h2
                             id="delete-service-title"
-                            className="mt-5 text-xl font-extrabold"
+                            className="mt-5 text-xl font-bold"
                         >
                             Hapus Layanan?
                         </h2>

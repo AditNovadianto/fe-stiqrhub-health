@@ -333,7 +333,7 @@ const MetricCard = ({
                     {loading ? (
                         <div className="mt-4 h-9 w-24 animate-pulse rounded-lg bg-blue-50" />
                     ) : (
-                        <h3 className="mt-3 wrap-break-word text-3xl font-extrabold tracking-tight text-slate-900">
+                        <h3 className="mt-3 wrap-break-word text-3xl font-bold tracking-tight text-slate-900">
                             {value}
                         </h3>
                     )}
@@ -715,7 +715,7 @@ const Home = () => {
                             Provider Overview
                         </p>
 
-                        <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 lg:text-3xl">
+                        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 lg:text-3xl">
                             Selamat datang, {userName}
                         </h1>
 
@@ -798,7 +798,7 @@ const Home = () => {
 
                 <section>
                     <div className="mb-4">
-                        <h2 className="text-lg font-extrabold text-slate-900">
+                        <h2 className="text-lg font-bold text-slate-900">
                             Ringkasan Operasional
                         </h2>
                         <p className="mt-1 text-xs text-slate-500">
@@ -903,7 +903,7 @@ const Home = () => {
                 </section>
 
                 <section>
-                    <h2 className="mb-4 text-lg font-extrabold text-slate-900">
+                    <h2 className="mb-4 text-lg font-bold text-slate-900">
                         Quick Actions
                     </h2>
 
@@ -989,7 +989,7 @@ const Home = () => {
                     <div className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm xl:col-span-2">
                         <div className="mb-5 flex items-center justify-between">
                             <div>
-                                <h2 className="text-lg font-extrabold text-slate-900">
+                                <h2 className="text-lg font-bold text-slate-900">
                                     Recent Activity
                                 </h2>
                                 <p className="mt-1 text-xs text-slate-500">
@@ -1068,7 +1068,7 @@ const Home = () => {
                     <div className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
                         <div className="mb-5 flex items-center justify-between">
                             <div>
-                                <h2 className="text-lg font-extrabold text-slate-900">
+                                <h2 className="text-lg font-bold text-slate-900">
                                     Your Services
                                 </h2>
                                 <p className="mt-1 text-xs text-slate-500">

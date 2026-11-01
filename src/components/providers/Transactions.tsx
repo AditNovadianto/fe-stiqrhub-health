@@ -295,7 +295,7 @@ const SummaryCard = ({
                 {loading ? (
                     <div className="mt-4 h-8 w-24 animate-pulse rounded-lg bg-blue-50" />
                 ) : (
-                    <h3 className="mt-3 wrap-break-word text-2xl font-extrabold text-slate-900">
+                    <h3 className="mt-3 wrap-break-word text-2xl font-bold text-slate-900">
                         {value}
                     </h3>
                 )}
@@ -573,7 +573,7 @@ const Transactions = () => {
                             Provider Portal
                         </p>
 
-                        <h1 className="mt-2 text-2xl font-extrabold text-slate-900 lg:text-3xl">
+                        <h1 className="mt-2 text-2xl font-bold text-slate-900 lg:text-3xl">
                             Transactions
                         </h1>
 
@@ -637,7 +637,7 @@ const Transactions = () => {
                     <div className="border-b border-blue-100 p-5">
                         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
                             <div>
-                                <h2 className="text-lg font-extrabold text-slate-900">
+                                <h2 className="text-lg font-bold text-slate-900">
                                     Daftar Transaksi
                                 </h2>
                                 <p className="mt-1 text-xs text-slate-500">
@@ -836,7 +836,7 @@ const Transactions = () => {
                                                     </td>
 
                                                     <td className="px-4 py-4">
-                                                        <p className="whitespace-nowrap text-sm font-extrabold text-slate-900">
+                                                        <p className="whitespace-nowrap text-sm font-bold text-slate-900">
                                                             {formatRupiah(order.total)}
                                                         </p>
                                                     </td>
@@ -895,7 +895,7 @@ const Transactions = () => {
                                                     <p className="text-xs text-slate-400">
                                                         Total
                                                     </p>
-                                                    <p className="mt-1 text-base font-extrabold text-slate-900">
+                                                    <p className="mt-1 text-base font-bold text-slate-900">
                                                         {formatRupiah(order.total)}
                                                     </p>
                                                 </div>
@@ -991,7 +991,7 @@ const Transactions = () => {
                             <div>
                                 <h2
                                     id="transaction-detail-title"
-                                    className="text-lg font-extrabold text-slate-900"
+                                    className="text-lg font-bold text-slate-900"
                                 >
                                     Detail Transaksi
                                 </h2>
@@ -1029,7 +1029,7 @@ const Transactions = () => {
                                 </div>
 
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-extrabold text-slate-900">
+                                    <p className="text-sm font-bold text-slate-900">
                                         {selectedOrder.name_service}
                                     </p>
                                     <p className="mt-1 text-xs text-slate-500">
@@ -1043,7 +1043,7 @@ const Transactions = () => {
 
                             {/* CUSTOMER */}
                             <div>
-                                <h3 className="mb-3 text-sm font-extrabold text-slate-900">
+                                <h3 className="mb-3 text-sm font-bold text-slate-900">
                                     Informasi Customer
                                 </h3>
 
@@ -1082,7 +1082,7 @@ const Transactions = () => {
 
                             {/* TRANSACTION */}
                             <div>
-                                <h3 className="mb-3 text-sm font-extrabold text-slate-900">
+                                <h3 className="mb-3 text-sm font-bold text-slate-900">
                                     Informasi Pembayaran
                                 </h3>
 
@@ -1137,7 +1137,7 @@ const Transactions = () => {
                                     <span className="text-sm font-bold text-blue-900">
                                         Total Pembayaran
                                     </span>
-                                    <span className="text-xl font-extrabold text-blue-700">
+                                    <span className="text-xl font-bold text-blue-700">
                                         {formatRupiah(selectedOrder.total)}
                                     </span>
                                 </div>

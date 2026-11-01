@@ -43,7 +43,7 @@ const NotFound = () => {
                             className="text-blue-600"
                         />
 
-                        <span className="text-sm font-extrabold tracking-wide text-slate-800">
+                        <span className="text-sm font-bold tracking-wide text-slate-800">
                             STIQR Health
                         </span>
                     </div>
@@ -83,7 +83,7 @@ const NotFound = () => {
                     </div>
 
                     <div className="mt-10">
-                        <h2 className="text-2xl font-extrabold text-slate-900">
+                        <h2 className="text-2xl font-bold text-slate-900">
                             Halaman Tidak Ditemukan
                         </h2>
 

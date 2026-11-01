@@ -282,7 +282,7 @@ const BalanceCard = ({
                         {title}
                     </p>
 
-                    <h3 className="mt-3 wrap-break-word text-2xl font-extrabold tracking-tight text-slate-900 md:text-3xl">
+                    <h3 className="mt-3 wrap-break-word text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
                         {value}
                     </h3>
                 </div>
@@ -552,7 +552,7 @@ const Settlement = () => {
                             Provider Finance
                         </p>
 
-                        <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 lg:text-3xl">
+                        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 lg:text-3xl">
                             Settlement
                         </h1>
 
@@ -644,7 +644,7 @@ const Settlement = () => {
                             className="mx-auto text-blue-300"
                         />
 
-                        <h2 className="mt-4 text-lg font-extrabold text-slate-900">
+                        <h2 className="mt-4 text-lg font-bold text-slate-900">
                             Belum Ada Data Saldo
                         </h2>
 
@@ -678,7 +678,7 @@ const Settlement = () => {
                                             Total Saldo Provider
                                         </p>
 
-                                        <h2 className="mt-3 wrap-break-word text-3xl font-extrabold tracking-tight md:text-4xl">
+                                        <h2 className="mt-3 wrap-break-word text-3xl font-bold tracking-tight md:text-4xl">
                                             {formatRupiah(summary.total)}
                                         </h2>
 
@@ -708,7 +708,7 @@ const Settlement = () => {
 
                         <section>
                             <div className="mb-4">
-                                <h2 className="text-lg font-extrabold text-slate-900">
+                                <h2 className="text-lg font-bold text-slate-900">
                                     Rincian Saldo
                                 </h2>
 
@@ -774,7 +774,7 @@ const Settlement = () => {
                             <div className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm xl:col-span-2">
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
-                                        <h2 className="text-lg font-extrabold text-slate-900">
+                                        <h2 className="text-lg font-bold text-slate-900">
                                             Jadwal Settlement
                                         </h2>
 
@@ -794,7 +794,7 @@ const Settlement = () => {
                                             Skema Settlement
                                         </p>
 
-                                        <p className="mt-2 text-xl font-extrabold text-blue-900">
+                                        <p className="mt-2 text-xl font-bold text-blue-900">
                                             Otomatis H+1
                                         </p>
 
@@ -809,7 +809,7 @@ const Settlement = () => {
                                             Estimasi Hari Berikutnya
                                         </p>
 
-                                        <p className="mt-2 text-base font-extrabold text-slate-900">
+                                        <p className="mt-2 text-base font-bold text-slate-900">
                                             {formatDate(
                                                 nextSettlementDate
                                             )}
@@ -887,7 +887,7 @@ const Settlement = () => {
                                         <Building2 size={22} />
                                     </div>
 
-                                    <h2 className="text-lg font-extrabold text-slate-900">
+                                    <h2 className="text-lg font-bold text-slate-900">
                                         Informasi Provider
                                     </h2>
                                 </div>
@@ -967,7 +967,7 @@ const Settlement = () => {
                                     <Info size={21} />
                                 </div>
 
-                                <h2 className="text-base font-extrabold text-slate-900">
+                                <h2 className="text-base font-bold text-slate-900">
                                     Informasi Penting
                                 </h2>
                             </div>

@@ -236,7 +236,7 @@ const SectionHeader = ({
         </div>
 
         <div className="min-w-0">
-            <h2 className="text-base font-extrabold text-slate-900">
+            <h2 className="text-base font-bold text-slate-900">
                 {title}
             </h2>
 
@@ -627,7 +627,7 @@ const Profile = () => {
                             Provider Portal
                         </p>
 
-                        <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 lg:text-3xl">
+                        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 lg:text-3xl">
                             My Profile
                         </h1>
 
@@ -701,7 +701,7 @@ const Profile = () => {
                                 Healthcare Provider
                             </p>
 
-                            <h2 className="mt-2 wrap-break-word text-2xl font-extrabold md:text-3xl">
+                            <h2 className="mt-2 wrap-break-word text-2xl font-bold md:text-3xl">
                                 {profileData.providerName}
                             </h2>
 
@@ -1066,7 +1066,7 @@ const Profile = () => {
                             </div>
 
                             <div>
-                                <p className="text-sm font-extrabold text-slate-900">
+                                <p className="text-sm font-bold text-slate-900">
                                     Keluar dari Akun
                                 </p>
 
@@ -1119,7 +1119,7 @@ const Profile = () => {
 
                         <h2
                             id="logout-title"
-                            className="mt-5 text-xl font-extrabold text-slate-900"
+                            className="mt-5 text-xl font-bold text-slate-900"
                         >
                             Keluar dari Akun?
                         </h2>

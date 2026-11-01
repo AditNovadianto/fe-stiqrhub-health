@@ -293,7 +293,7 @@ const Dashboard = () => {
                                 <img src={logo} className="w-10 h-10" alt="STIQR Health Logo" />
 
                                 <div className="min-w-0">
-                                    <h1 className="truncate text-lg font-extrabold tracking-wide">
+                                    <h1 className="truncate text-lg font-bold tracking-wide">
                                         STIQR Health
                                     </h1>
                                     <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-100">
@@ -414,7 +414,7 @@ const Dashboard = () => {
                                 size={20}
                                 className="text-blue-600"
                             />
-                            <span className="text-sm font-extrabold text-slate-900">
+                            <span className="text-sm font-bold text-slate-900">
                                 STIQR Health
                             </span>
                         </div>
@@ -479,7 +479,7 @@ const Dashboard = () => {
 
                         <h2
                             id="provider-logout-title"
-                            className="mt-5 text-xl font-extrabold text-slate-900"
+                            className="mt-5 text-xl font-bold text-slate-900"
                         >
                             Keluar dari Akun?
                         </h2>
