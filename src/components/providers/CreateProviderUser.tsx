@@ -1,4 +1,3 @@
-
 import {
     useCallback,
     useEffect,
@@ -24,10 +23,6 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import Toast, { type ToastData } from "../Toast";
-
-// ============================================================
-// INTERFACES
-// ============================================================
 
 interface CreateProviderUserProps {
     providerId: number;
@@ -70,12 +65,6 @@ interface ProviderUserResponse {
     errors?: Record<string, string | string[]>;
 }
 
-const API_URI = (import.meta.env.VITE_API_URI || "").replace(/\/$/, "");
-
-// ============================================================
-// COMPONENT
-// ============================================================
-
 const CreateProviderUser = ({
     providerId,
     providerEmail = "",
@@ -86,10 +75,6 @@ const CreateProviderUser = ({
     const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(
         null
     );
-
-    // ========================================================
-    // FORM STATES
-    // ========================================================
 
     const [formData, setFormData] = useState<ProviderUserForm>({
         name_provider_user: "",
@@ -106,17 +91,9 @@ const CreateProviderUser = ({
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    // ========================================================
-    // PROVIDER ROLE STATES
-    // ========================================================
-
     const [roles, setRoles] = useState<ProviderRole[]>([]);
     const [loadingRoles, setLoadingRoles] = useState(true);
     const [roleError, setRoleError] = useState<string | null>(null);
-
-    // ========================================================
-    // TOAST
-    // ========================================================
 
     const [toast, setToast] = useState<ToastData>({
         show: false,
@@ -144,22 +121,18 @@ const CreateProviderUser = ({
         });
     };
 
-    // ========================================================
-    // FETCH PROVIDER ROLES
-    // ========================================================
-
     const fetchProviderRoles = useCallback(
         async (signal?: AbortSignal) => {
             try {
                 setLoadingRoles(true);
                 setRoleError(null);
 
-                if (!API_URI) {
+                if (!import.meta.env.VITE_API_URI) {
                     throw new Error("VITE_API_URI is not configured.");
                 }
 
                 const response = await fetch(
-                    `${API_URI}/provider-role/get-all`,
+                    `${import.meta.env.VITE_API_URI}/provider-role/get-all`,
                     {
                         method: "GET",
                         headers: {
@@ -245,10 +218,6 @@ const CreateProviderUser = ({
         };
     }, []);
 
-    // ========================================================
-    // HANDLE FORM CHANGE
-    // ========================================================
-
     const handleChange = (
         e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
     ) => {
@@ -264,10 +233,6 @@ const CreateProviderUser = ({
             [name]: newValue,
         }));
     };
-
-    // ========================================================
-    // FORM VALIDATION
-    // ========================================================
 
     const validateForm = (): boolean => {
         if (!formData.name_provider_user.trim()) {
@@ -367,10 +332,6 @@ const CreateProviderUser = ({
         return true;
     };
 
-    // ========================================================
-    // SUBMIT PROVIDER USER
-    // ========================================================
-
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
@@ -401,7 +362,7 @@ const CreateProviderUser = ({
             };
 
             const response = await fetch(
-                `${API_URI}/provider-user/sign-up`,
+                `${import.meta.env.VITE_API_URI}/provider-user/sign-up`,
                 {
                     method: "POST",
                     headers: {
@@ -476,10 +437,6 @@ const CreateProviderUser = ({
         }
     };
 
-    // ========================================================
-    // INPUT STYLES
-    // ========================================================
-
     const inputClass =
         "w-full rounded-xl border border-gray-300 bg-white py-3 pl-11 pr-4 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-50";
 
@@ -488,10 +445,6 @@ const CreateProviderUser = ({
 
     const labelClass =
         "mb-2 block text-sm font-medium text-gray-700";
-
-    // ========================================================
-    // RENDER
-    // ========================================================
 
     return (
         <>

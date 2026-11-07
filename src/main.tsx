@@ -11,7 +11,7 @@ import ForgotPasswordCustomer from './pages/customers/ForgotPassword.tsx'
 import ResetPasswordCustomer from './pages/customers/ResetPassword.tsx'
 import ForgotPasswordProvider from './pages/providers/ForgotPassword.tsx'
 import ResetPasswordProvider from './pages/providers/ResetPassword.tsx'
-import SignIn from './pages/providers/SignIn.tsx'
+import SignInProvider from './pages/providers/SignIn.tsx'
 import DetailService from './components/customers/DetailService.tsx'
 import HomeCustomer from './components/customers/Home.tsx'
 import History from './components/customers/History.tsx'
@@ -22,7 +22,7 @@ import HomeProvider from './components/providers/Home.tsx'
 import ScanHealthPasses from './components/providers/ScanHealthPasses.tsx'
 import Transactions from './components/providers/Transactions.tsx'
 import Redemptions from './components/providers/Redemptions.tsx'
-import Settlement from './components/providers/Settlement.tsx'
+import SettlementProvider from './components/providers/Settlement.tsx'
 import ServicesProvider from './components/providers/Services.tsx'
 import ServicesCustomer from './components/customers/Services.tsx'
 import ProfileProvider from './components/providers/Profile.tsx'
@@ -32,6 +32,24 @@ import PrivacyPolicy from './components/customers/PrivacyPolicy.tsx'
 import TermsConditions from './components/customers/TermsConditions.tsx'
 import UserConsent from './components/customers/UserConsent.tsx'
 import Payment from './components/customers/Payment.tsx'
+import SignInCustomer from './pages/users/SignIn.tsx'
+import DashboardUser from './pages/users/Dashboard.tsx'
+import HomeUser from './components/users/Home.tsx'
+import ProviderGroup from './components/users/ProviderGroup.tsx'
+import Provider from './components/users/Provider.tsx'
+import ServiceCatalog from './components/users/ServiceCatalog.tsx'
+import ProviderCategory from './components/users/ProviderCategory.tsx'
+import CustomerAccount from './components/users/CustomerAccount.tsx'
+import Order from './components/users/Order.tsx'
+import ProviderUser from './components/users/ProviderUser.tsx'
+import ProviderApproval from './components/users/ProviderApproval.tsx'
+import ProviderBankAccount from './components/users/ProviderBankAccount.tsx'
+import SettlementUser from './components/users/Settlement.tsx'
+import ProviderBalance from './components/users/ProviderBalance.tsx'
+import InternalAccount from './components/users/InternalAccount.tsx'
+import ResetPasswordUser from './pages/users/ResetPassword.tsx'
+import UserRole from './components/users/UserRole.tsx'
+import ProviderRole from './components/users/ProviderRole.tsx'
 
 const router = createBrowserRouter([
   {
@@ -117,7 +135,7 @@ const router = createBrowserRouter([
     children: [
       {
         path: "sign-in",
-        element: <SignIn />,
+        element: <SignInProvider />,
       },
       {
         path: "sign-up",
@@ -152,7 +170,7 @@ const router = createBrowserRouter([
           },
           {
             path: "settlement",
-            element: <Settlement />,
+            element: <SettlementProvider />,
           },
           {
             path: "services",
@@ -162,6 +180,84 @@ const router = createBrowserRouter([
             path: "profile",
             element: <ProfileProvider />,
           }
+        ]
+      },
+    ]
+  },
+  {
+    path: "/user",
+    children: [
+      {
+        path: "sign-in",
+        element: <SignInCustomer />,
+      },
+      {
+        path: "reset-password/:token",
+        element: <ResetPasswordUser />,
+      },
+      {
+        element: <DashboardUser />,
+        children: [
+          {
+            path: "dashboard",
+            element: <HomeUser />,
+          },
+          {
+            path: "provider-groups",
+            element: <ProviderGroup />,
+          },
+          {
+            path: "providers",
+            element: <Provider />,
+          },
+          {
+            path: "services",
+            element: <ServiceCatalog />,
+          },
+          {
+            path: "provider-categories",
+            element: <ProviderCategory />,
+          },
+          {
+            path: "customers",
+            element: <CustomerAccount />,
+          },
+          {
+            path: "orders",
+            element: <Order />,
+          },
+          {
+            path: "provider-users",
+            element: <ProviderUser />,
+          },
+          {
+            path: "approvals",
+            element: <ProviderApproval />,
+          },
+          {
+            path: "bank-accounts",
+            element: <ProviderBankAccount />,
+          },
+          {
+            path: "settlements",
+            element: <SettlementUser />,
+          },
+          {
+            path: "balances",
+            element: <ProviderBalance />,
+          },
+          {
+            path: "users",
+            element: <InternalAccount />,
+          },
+          {
+            path: "user-roles",
+            element: <UserRole />,
+          },
+          {
+            path: "provider-roles",
+            element: <ProviderRole />,
+          },
         ]
       },
     ]

@@ -2,6 +2,8 @@ import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import logo from "../../images/logo-stiqrhub-health.jpeg";
+
 interface ProviderUser {
     id_provider_user: number;
     name_provider_user: string;
@@ -134,6 +136,12 @@ const SignIn = () => {
                 <div className="rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
                     {/* Header */}
                     <div className="mb-8 text-center">
+                        <img
+                            src={logo}
+                            alt="STIQR Hub Health"
+                            className="mx-auto mb-5 h-20 w-20 object-contain"
+                        />
+
                         <h1 className="text-2xl font-semibold text-gray-900">
                             Provider Sign In
                         </h1>

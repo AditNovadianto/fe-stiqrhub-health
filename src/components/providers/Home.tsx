@@ -1,4 +1,3 @@
-
 import {
     useEffect,
     useMemo,
@@ -28,10 +27,6 @@ import {
 } from "lucide-react";
 
 import { isTokenExpired } from "../../utils/auth";
-
-// ==========================================================
-// TYPES
-// ==========================================================
 
 interface ProviderUser {
     id_provider_user?: number | string;

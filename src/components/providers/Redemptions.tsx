@@ -1,4 +1,3 @@
-
 import {
     useCallback,
     useEffect,
@@ -63,16 +62,24 @@ interface HealthPass {
     redeemed_by: string | number | null;
 
     id_order: string;
-    id_customer: number;
+    id_customer: number | null;
+    id_guest?: number | null;
     id_service: number;
     id_provider?: number;
 
     payment_status: string;
     order_status: string;
 
-    name_customer?: string;
-    email_customer?: string;
-    phone_number_customer?: string;
+    // Recipient: CUSTOMER or GUEST
+    recipient_type?: "CUSTOMER" | "GUEST" | "UNKNOWN";
+
+    // These fields contain the recipient's information.
+    name_customer?: string | null;
+    email_customer?: string | null;
+    phone_number_customer?: string | null;
+
+    // DOB is only available for CUSTOMER.
+    dob_customer?: string | null;
 
     name_service?: string;
     price_service?: string | number;
@@ -208,6 +215,46 @@ const formatDate = (
             : {}),
         timeZone: "Asia/Jakarta",
     }).format(new Date(timestamp));
+};
+
+const formatDateOfBirth = (
+    value?: string | null
+): string => {
+    if (!value) return "-";
+
+    // Ambil date-only agar tanggal lahir
+    // tidak berubah akibat konversi timezone.
+    const dateOnly = value.slice(0, 10);
+
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(
+        dateOnly
+    );
+
+    if (!match) return "-";
+
+    const [, year, month, day] = match;
+
+    const date = new Date(
+        Date.UTC(
+            Number(year),
+            Number(month) - 1,
+            Number(day)
+        )
+    );
+
+    if (
+        Number.isNaN(date.getTime()) ||
+        date.toISOString().slice(0, 10) !== dateOnly
+    ) {
+        return "-";
+    }
+
+    return new Intl.DateTimeFormat("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+    }).format(date);
 };
 
 const getJakartaDay = (timestamp: number): string => {
@@ -1277,29 +1324,85 @@ const Redemptions = () => {
 
                             {/* CUSTOMER DETAILS */}
                             <section>
-                                <h3 className="mb-3 text-sm font-bold text-slate-900">
-                                    Informasi Customer
-                                </h3>
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                    <h3 className="text-sm font-bold text-slate-900">
+                                        Informasi Customer
+                                    </h3>
+
+                                    {/* RECIPIENT TYPE */}
+                                    <span
+                                        className={`inline-flex rounded-full px-3 py-1.5 text-[11px] font-bold ${selectedPass.recipient_type === "GUEST"
+                                            ? "bg-amber-50 text-amber-700"
+                                            : "bg-blue-50 text-blue-700"
+                                            }`}
+                                    >
+                                        {selectedPass.recipient_type === "GUEST"
+                                            ? "Guest / Orang Lain"
+                                            : selectedPass.recipient_type === "CUSTOMER"
+                                                ? "Customer / Diri Sendiri"
+                                                : "Penerima Layanan"}
+                                    </span>
+                                </div>
 
                                 <div className="rounded-xl bg-slate-50 p-4">
+                                    {/* NAME */}
                                     <DetailRow
                                         icon={UserRound}
-                                        label="Nama Customer"
-                                        value={selectedPass.name_customer || "-"}
+                                        label={
+                                            selectedPass.recipient_type === "GUEST"
+                                                ? "Nama Guest"
+                                                : "Nama Customer"
+                                        }
+                                        value={
+                                            selectedPass.name_customer || "-"
+                                        }
                                     />
 
+                                    {/* EMAIL */}
                                     <DetailRow
                                         icon={Mail}
                                         label="Email"
-                                        value={selectedPass.email_customer || "-"}
+                                        value={
+                                            selectedPass.email_customer || "-"
+                                        }
                                     />
 
+                                    {/* PHONE NUMBER */}
                                     <DetailRow
                                         icon={Phone}
                                         label="Nomor Telepon"
-                                        value={selectedPass.phone_number_customer || "-"}
+                                        value={
+                                            selectedPass.phone_number_customer || "-"
+                                        }
                                     />
+
+                                    {/* DATE OF BIRTH - CUSTOMER ONLY */}
+                                    {selectedPass.recipient_type === "CUSTOMER" && (
+                                        <DetailRow
+                                            icon={CalendarDays}
+                                            label="Tanggal Lahir (DOB)"
+                                            value={formatDateOfBirth(
+                                                selectedPass.dob_customer
+                                            )}
+                                        />
+                                    )}
                                 </div>
+
+                                {/* INFORMATION */}
+                                {selectedPass.recipient_type === "GUEST" && (
+                                    <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 p-3">
+                                        <UserRound
+                                            size={17}
+                                            className="mt-0.5 shrink-0 text-amber-600"
+                                        />
+
+                                        <p className="text-xs leading-5 text-amber-700">
+                                            Health Pass ini digunakan oleh guest
+                                            atau orang lain yang didaftarkan
+                                            oleh customer.
+                                        </p>
+                                    </div>
+                                )}
                             </section>
 
                             {/* HEALTH PASS DETAILS */}
