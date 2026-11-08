@@ -50,6 +50,11 @@ interface ProviderContext {
     userName: string;
 }
 
+interface ProviderUserLookup {
+    id_provider_user: number;
+    name_provider_user: string;
+}
+
 interface HealthPass {
     id_health_pass: string;
     status_health_pass: string;
@@ -463,6 +468,7 @@ const Redemptions = () => {
             : getStoredProviderId();
 
     const [passes, setPasses] = useState<HealthPass[]>([]);
+    const [providerUsers, setProviderUsers] = useState<ProviderUserLookup[]>([]);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
 
@@ -583,6 +589,110 @@ const Redemptions = () => {
 
         return () => controller.abort();
     }, [providerId, refreshKey, redirectToLogin]);
+
+    useEffect(() => {
+        if (!providerId) {
+            setProviderUsers([]);
+            return;
+        }
+
+        const controller = new AbortController();
+
+        const fetchProviderUsers = async () => {
+            try {
+                const token = getProviderToken();
+
+                if (!token || isTokenExpired(token)) {
+                    return;
+                }
+
+                const response = await fetch(
+                    `${API_BASE_URL}/provider-user/provider/${providerId}`,
+                    {
+                        method: "GET",
+                        headers: {
+                            Accept: "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                        signal: controller.signal,
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        `Gagal mengambil Provider Users (${response.status})`
+                    );
+                }
+
+                const result = await response.json();
+
+                if (!Array.isArray(result.provider_users)) {
+                    throw new Error(
+                        "Format data Provider Users tidak valid."
+                    );
+                }
+
+                const users: ProviderUserLookup[] =
+                    result.provider_users
+                        .map((user: ProviderUserLookup) => ({
+                            id_provider_user: Number(
+                                user.id_provider_user
+                            ),
+                            name_provider_user:
+                                user.name_provider_user,
+                        }))
+                        .filter(
+                            (user: ProviderUserLookup) =>
+                                Number.isSafeInteger(
+                                    user.id_provider_user
+                                ) &&
+                                user.id_provider_user > 0 &&
+                                typeof user.name_provider_user ===
+                                "string"
+                        );
+
+                if (!controller.signal.aborted) {
+                    setProviderUsers(users);
+                }
+            } catch (error) {
+                if (!controller.signal.aborted) {
+                    console.error(
+                        "Gagal mengambil Provider Users:",
+                        error
+                    );
+                    setProviderUsers([]);
+                }
+            }
+        };
+
+        void fetchProviderUsers();
+
+        return () => controller.abort();
+    }, [providerId, refreshKey]);
+
+    const getRedeemedByName = useCallback(
+        (redeemedBy: string | number | null): string => {
+            if (
+                redeemedBy === null ||
+                redeemedBy === undefined ||
+                redeemedBy === ""
+            ) {
+                return "-";
+            }
+
+            const user = providerUsers.find(
+                (item) =>
+                    String(item.id_provider_user) ===
+                    String(redeemedBy)
+            );
+
+            return (
+                user?.name_provider_user ||
+                `Provider User #${redeemedBy}`
+            );
+        },
+        [providerUsers]
+    );
 
     useEffect(() => {
         const interval = window.setInterval(
@@ -1086,9 +1196,7 @@ const Redemptions = () => {
 
                                                         <td className="px-4 py-4">
                                                             <p className="text-xs font-medium text-slate-700">
-                                                                {pass.redeemed_by == null
-                                                                    ? "-"
-                                                                    : String(pass.redeemed_by)}
+                                                                {getRedeemedByName(pass.redeemed_by)}
                                                             </p>
                                                         </td>
 
@@ -1157,9 +1265,7 @@ const Redemptions = () => {
                                                     </p>
 
                                                     <p className="mt-1 text-sm font-semibold text-slate-800">
-                                                        {pass.redeemed_by == null
-                                                            ? "-"
-                                                            : String(pass.redeemed_by)}
+                                                        {getRedeemedByName(pass.redeemed_by)}
                                                     </p>
                                                 </div>
 
@@ -1459,12 +1565,8 @@ const Redemptions = () => {
 
                                     <DetailRow
                                         icon={ShieldCheck}
-                                        label="Redeemed By (ID Provider User)"
-                                        value={
-                                            selectedPass.redeemed_by == null
-                                                ? "-"
-                                                : String(selectedPass.redeemed_by)
-                                        }
+                                        label="Redeemed By"
+                                        value={getRedeemedByName(selectedPass.redeemed_by)}
                                     />
 
                                     <DetailRow

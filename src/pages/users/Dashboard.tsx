@@ -489,7 +489,7 @@ const Dashboard = () => {
                     </h1>
 
                     <p className="text-[11px] text-blue-200">
-                        Web Management
+                        Admin Portal
                     </p>
                 </div>
 

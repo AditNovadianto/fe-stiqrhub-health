@@ -22,17 +22,23 @@ import {
     RefreshCw,
     Search,
     ShieldCheck,
+    UserCheck,
     UserRound,
     UserRoundPlus,
+    UserX,
     Users,
     X,
 } from "lucide-react";
 
 const PAGE_SIZE = 10;
 
-type ApiRecord = Record<string, unknown>;
+// Sesuaikan dengan endpoint backend jika berbeda.
+const updateStatusPath = (id: number) =>
+    `/provider-user/${id}/status`;
 
-type ModalType = "create" | "detail" | null;
+type ApiRecord = Record<string, unknown>;
+type AccountStatus = "ACTIVE" | "INACTIVE";
+type ModalType = "create" | "detail" | "status" | null;
 
 interface ProviderUserData {
     id_provider_user: number;
@@ -59,7 +65,7 @@ interface ProviderUserForm {
     email_provider_user: string;
     password_provider_user: string;
     phone_number_provider_user: string;
-    status_provider_user: "ACTIVE" | "INACTIVE";
+    status_provider_user: AccountStatus;
     id_provider: string;
     id_provider_role: string;
 }
@@ -89,8 +95,20 @@ const primaryButton =
 const secondaryButton =
     "inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-[#DBE4F0] bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50";
 
+const successButton =
+    "inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50";
+
+const dangerButton =
+    "inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50";
+
 const inputClass =
-    "w-full rounded-lg border border-[#DBE4F0] bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-[#0866D8] focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50";
+    "w-full min-w-0 rounded-lg border border-[#DBE4F0] bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-[#0866D8] focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50";
+
+const filterClass =
+    "rounded-lg border border-[#DBE4F0] bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-[#0866D8]";
+
+const iconButtonClass =
+    "flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
 const emptyForm = (): ProviderUserForm => ({
     name_provider_user: "",
@@ -102,9 +120,7 @@ const emptyForm = (): ProviderUserForm => ({
     id_provider_role: "",
 });
 
-const isRecord = (
-    value: unknown
-): value is ApiRecord =>
+const isRecord = (value: unknown): value is ApiRecord =>
     value !== null &&
     typeof value === "object" &&
     !Array.isArray(value);
@@ -113,7 +129,6 @@ const asText = (value: unknown): string => {
     if (value === null || value === undefined) {
         return "";
     }
-
     return String(value);
 };
 
@@ -134,9 +149,7 @@ const asId = (value: unknown): number | null => {
 };
 
 const normalizeStatus = (value: unknown): string =>
-    asText(value || "UNKNOWN")
-        .trim()
-        .toUpperCase();
+    asText(value || "UNKNOWN").trim().toUpperCase();
 
 const getErrorMessage = (error: unknown): string =>
     error instanceof Error
@@ -158,6 +171,13 @@ const getInitials = (name: string): string => {
         .join("");
 };
 
+const getNextStatus = (
+    status: string
+): AccountStatus =>
+    normalizeStatus(status) === "ACTIVE"
+        ? "INACTIVE"
+        : "ACTIVE";
+
 const extractArray = (
     payload: unknown,
     keys: string[],
@@ -167,7 +187,6 @@ const extractArray = (
         if (!payload.every(isRecord)) {
             throw new Error("Format daftar API tidak valid.");
         }
-
         return payload;
     }
 
@@ -200,7 +219,7 @@ const extractArray = (
             try {
                 return extractArray(value, keys, depth + 1);
             } catch {
-                // Lanjut periksa field lain.
+                // Periksa field berikutnya.
             }
         }
     }
@@ -212,7 +231,6 @@ const normalizeProviderUser = (
     row: ApiRecord
 ): ProviderUserData | null => {
     const id = asId(row.id_provider_user);
-
     if (id === null) return null;
 
     const provider = isRecord(row.provider)
@@ -225,27 +243,17 @@ const normalizeProviderUser = (
 
     return {
         id_provider_user: id,
-
-        name_provider_user: asText(
-            row.name_provider_user
-        ),
-
-        email_provider_user: asText(
-            row.email_provider_user
-        ),
-
+        name_provider_user: asText(row.name_provider_user),
+        email_provider_user: asText(row.email_provider_user),
         phone_number_provider_user: asText(
             row.phone_number_provider_user
         ),
-
         status_provider_user: normalizeStatus(
             row.status_provider_user
         ),
-
         id_provider:
             asId(row.id_provider) ??
             asId(provider?.id_provider),
-
         id_provider_role:
             asId(row.id_provider_role) ??
             asId(role?.id_provider_role),
@@ -256,7 +264,6 @@ const normalizeProvider = (
     row: ApiRecord
 ): ProviderData | null => {
     const id = asId(row.id_provider);
-
     if (id === null) return null;
 
     return {
@@ -269,14 +276,11 @@ const normalizeProviderRole = (
     row: ApiRecord
 ): ProviderRoleData | null => {
     const id = asId(row.id_provider_role);
-
     if (id === null) return null;
 
     return {
         id_provider_role: id,
-        name_provider_role: asText(
-            row.name_provider_role
-        ),
+        name_provider_role: asText(row.name_provider_role),
     };
 };
 
@@ -285,7 +289,6 @@ class ApiError extends Error {
 
     constructor(status: number, message: string) {
         super(message);
-
         this.name = "ApiError";
         this.status = status;
     }
@@ -309,7 +312,10 @@ const apiRequest = async (
 
     headers.set("Accept", "application/json");
 
-    if (options.body && !(options.body instanceof FormData)) {
+    if (
+        options.body &&
+        !(options.body instanceof FormData)
+    ) {
         headers.set("Content-Type", "application/json");
     }
 
@@ -328,33 +334,27 @@ const apiRequest = async (
     const contentType =
         response.headers.get("content-type") ?? "";
 
-    let payload: unknown = null;
-
-    if (contentType.includes("application/json")) {
-        payload = await response.json();
-    } else {
-        const body = await response.text();
-        payload = body || null;
-    }
+    const payload: unknown = contentType.includes(
+        "application/json"
+    )
+        ? await response.json()
+        : (await response.text()) || null;
 
     if (!response.ok) {
         const message =
             isRecord(payload) &&
                 typeof payload.message === "string"
                 ? payload.message
-                : response.status === 403
-                    ? "Anda tidak memiliki akses ke endpoint ini."
-                    : response.status === 401
-                        ? "Token tidak diterima oleh endpoint ini."
+                : response.status === 401
+                    ? "Token tidak diterima oleh endpoint ini."
+                    : response.status === 403
+                        ? "Anda tidak memiliki akses ke endpoint ini."
                         : `Request gagal (HTTP ${response.status}).`;
 
         throw new ApiError(response.status, message);
     }
 
-    if (
-        isRecord(payload) &&
-        payload.success === false
-    ) {
+    if (isRecord(payload) && payload.success === false) {
         throw new Error(
             typeof payload.message === "string"
                 ? payload.message
@@ -380,43 +380,8 @@ const getAllProviderUsers = async (
     ])
         .map(normalizeProviderUser)
         .filter(
-            (item): item is ProviderUserData =>
-                item !== null
+            (item): item is ProviderUserData => item !== null
         );
-};
-
-const createProviderUser = async (
-    form: ProviderUserForm
-): Promise<unknown> => {
-    return apiRequest(
-        "/provider-user/sign-up",
-        {
-            method: "POST",
-            body: JSON.stringify({
-                name_provider_user:
-                    form.name_provider_user.trim(),
-
-                email_provider_user:
-                    form.email_provider_user.trim().toLowerCase(),
-
-                password_provider_user:
-                    form.password_provider_user,
-
-                phone_number_provider_user:
-                    form.phone_number_provider_user.trim(),
-
-                status_provider_user:
-                    form.status_provider_user,
-
-                id_provider: Number(form.id_provider),
-
-                id_provider_role: Number(
-                    form.id_provider_role
-                ),
-            }),
-        },
-        false
-    );
 };
 
 const getAllProviders = async (
@@ -433,8 +398,7 @@ const getAllProviders = async (
     ])
         .map(normalizeProvider)
         .filter(
-            (item): item is ProviderData =>
-                item !== null
+            (item): item is ProviderData => item !== null
         );
 };
 
@@ -453,10 +417,47 @@ const getAllProviderRoles = async (
     ])
         .map(normalizeProviderRole)
         .filter(
-            (item): item is ProviderRoleData =>
-                item !== null
+            (item): item is ProviderRoleData => item !== null
         );
 };
+
+const createProviderUser = async (
+    form: ProviderUserForm
+): Promise<unknown> =>
+    apiRequest(
+        "/provider-user/sign-up",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                name_provider_user:
+                    form.name_provider_user.trim(),
+                email_provider_user:
+                    form.email_provider_user.trim().toLowerCase(),
+                password_provider_user:
+                    form.password_provider_user,
+                phone_number_provider_user:
+                    form.phone_number_provider_user.trim(),
+                status_provider_user:
+                    form.status_provider_user,
+                id_provider: Number(form.id_provider),
+                id_provider_role: Number(
+                    form.id_provider_role
+                ),
+            }),
+        },
+        false
+    );
+
+const updateProviderUserStatus = async (
+    id: number,
+    status: AccountStatus
+): Promise<unknown> =>
+    apiRequest(updateStatusPath(id), {
+        method: "PATCH",
+        body: JSON.stringify({
+            status_provider_user: status,
+        }),
+    });
 
 const StatusBadge = ({
     status,
@@ -491,7 +492,6 @@ const LoadingState = () => (
             size={18}
             className="animate-spin text-[#0866D8]"
         />
-
         Memuat data...
     </div>
 );
@@ -503,7 +503,6 @@ const EmptyState = ({
 }) => (
     <div className="flex min-h-40 flex-col items-center justify-center gap-3 p-6 text-center">
         <Users size={28} className="text-slate-300" />
-
         <p className="text-sm text-slate-500">
             {message}
         </p>
@@ -518,7 +517,6 @@ const InfoField = ({
         <p className="text-xs text-[#526789]">
             {label}
         </p>
-
         <p className="mt-1 wrap-break-word text-sm font-medium text-slate-900">
             {value === null ||
                 value === undefined ||
@@ -547,7 +545,10 @@ const Modal = ({
         document.addEventListener("keydown", onEscape);
 
         return () => {
-            document.removeEventListener("keydown", onEscape);
+            document.removeEventListener(
+                "keydown",
+                onEscape
+            );
         };
     }, [busy, onClose]);
 
@@ -569,10 +570,9 @@ const Modal = ({
                 aria-label={title}
                 className={`flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ${wide
                     ? "h-[min(650px,90dvh)] max-w-2xl"
-                    : "h-[min(530px,90dvh)] max-w-lg"
+                    : "max-h-[90dvh] max-w-lg"
                     }`}
             >
-                {/* HEADER */}
                 <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4">
                     <h2 className="text-lg font-bold text-slate-950">
                         {title}
@@ -589,12 +589,10 @@ const Modal = ({
                     </button>
                 </div>
 
-                {/* SCROLLABLE CONTENT */}
-                <div className="min-h-0 flex-1 overflow-y-auto p-5 scrollbar-gutter-stable">
+                <div className="min-h-0 flex-1 overflow-y-auto p-5">
                     {children}
                 </div>
 
-                {/* FIXED FOOTER */}
                 {footer && (
                     <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-100 bg-white px-5 py-4">
                         {footer}
@@ -620,48 +618,43 @@ const ProviderUser = () => {
         ProviderRoleData[]
     >([]);
 
-    const [selectedUser, setSelectedUser] = useState<
-        ProviderUserData | null
-    >(null);
+    const [selectedUser, setSelectedUser] =
+        useState<ProviderUserData | null>(null);
 
-    const [modal, setModal] = useState<ModalType>(null);
+    const [statusTarget, setStatusTarget] =
+        useState<ProviderUserData | null>(null);
 
-    const [form, setForm] = useState<ProviderUserForm>(
-        emptyForm()
-    );
+    const [modal, setModal] =
+        useState<ModalType>(null);
+
+    const [form, setForm] =
+        useState<ProviderUserForm>(emptyForm());
 
     const [showPassword, setShowPassword] =
         useState(false);
 
     const [search, setSearch] = useState("");
-
     const [statusFilter, setStatusFilter] =
         useState("ALL");
-
     const [providerFilter, setProviderFilter] =
         useState("ALL");
-
     const [roleFilter, setRoleFilter] =
         useState("ALL");
 
     const [page, setPage] = useState(1);
-
     const [loading, setLoading] = useState(true);
-
     const [saving, setSaving] = useState(false);
 
     const [listError, setListError] = useState("");
-
     const [modalError, setModalError] = useState("");
 
-    const [notice, setNotice] = useState<
-        Notice | null
-    >(null);
+    const [notice, setNotice] =
+        useState<Notice | null>(null);
 
     const [refreshKey, setRefreshKey] = useState(0);
 
     const handleApiError = useCallback(
-        (error: unknown): boolean => {
+        (error: unknown) => {
             if (
                 error instanceof ApiError &&
                 error.status === 401 &&
@@ -670,11 +663,7 @@ const ProviderUser = () => {
                 navigate("/user/sign-in", {
                     replace: true,
                 });
-
-                return true;
             }
-
-            return false;
         },
         [navigate]
     );
@@ -704,11 +693,9 @@ const ProviderUser = () => {
                 setProviderUsers(usersResult.value);
             } else {
                 setProviderUsers([]);
-
                 setListError(
                     getErrorMessage(usersResult.reason)
                 );
-
                 handleApiError(usersResult.reason);
             }
 
@@ -763,11 +750,13 @@ const ProviderUser = () => {
     );
 
     const activeCount = providerUsers.filter(
-        (user) => user.status_provider_user === "ACTIVE"
+        (user) =>
+            user.status_provider_user === "ACTIVE"
     ).length;
 
     const inactiveCount = providerUsers.filter(
-        (user) => user.status_provider_user === "INACTIVE"
+        (user) =>
+            user.status_provider_user === "INACTIVE"
     ).length;
 
     const providerCount = new Set(
@@ -894,6 +883,7 @@ const ProviderUser = () => {
 
         setModal(null);
         setSelectedUser(null);
+        setStatusTarget(null);
         setForm(emptyForm());
         setModalError("");
         setShowPassword(false);
@@ -902,6 +892,7 @@ const ProviderUser = () => {
     const openCreate = () => {
         setForm(emptyForm());
         setSelectedUser(null);
+        setStatusTarget(null);
         setModalError("");
         setShowPassword(false);
         setModal("create");
@@ -909,8 +900,15 @@ const ProviderUser = () => {
 
     const openDetail = (user: ProviderUserData) => {
         setSelectedUser(user);
+        setStatusTarget(null);
         setModalError("");
         setModal("detail");
+    };
+
+    const openStatus = (user: ProviderUserData) => {
+        setStatusTarget(user);
+        setModalError("");
+        setModal("status");
     };
 
     const updateForm = (
@@ -923,6 +921,22 @@ const ProviderUser = () => {
         }));
     };
 
+    const refreshData = () => {
+        setNotice(null);
+        setRefreshKey((value) => value + 1);
+    };
+
+    const refreshUsersAfterMutation = async () => {
+        try {
+            const latest = await getAllProviderUsers();
+            setProviderUsers(latest);
+            return true;
+        } catch {
+            setRefreshKey((value) => value + 1);
+            return false;
+        }
+    };
+
     const handleCreate = async (
         event: FormEvent<HTMLFormElement>
     ) => {
@@ -931,9 +945,12 @@ const ProviderUser = () => {
         if (saving) return;
 
         const name = form.name_provider_user.trim();
-        const email = form.email_provider_user.trim();
+        const email = form.email_provider_user
+            .trim()
+            .toLowerCase();
         const password = form.password_provider_user;
-        const phone = form.phone_number_provider_user.trim();
+        const phone =
+            form.phone_number_provider_user.trim();
 
         if (!name) {
             setModalError("Nama pengguna wajib diisi.");
@@ -946,15 +963,13 @@ const ProviderUser = () => {
         }
 
         if (password.length < 8) {
-            setModalError(
-                "Password minimal 8 karakter."
-            );
+            setModalError("Password minimal 8 karakter.");
             return;
         }
 
-        if (!/^\+?[0-9]{8,15}$/.test(phone)) {
+        if (!/^[0-9]{8,15}$/.test(phone)) {
             setModalError(
-                "Nomor telepon harus 8–15 digit angka."
+                "Nomor telepon harus terdiri dari 8–15 digit angka."
             );
             return;
         }
@@ -972,7 +987,7 @@ const ProviderUser = () => {
         const emailExists = providerUsers.some(
             (user) =>
                 user.email_provider_user.toLowerCase() ===
-                email.toLowerCase()
+                email
         );
 
         if (emailExists) {
@@ -988,27 +1003,18 @@ const ProviderUser = () => {
         try {
             await createProviderUser(form);
 
-            // Pendaftaran sudah berhasil.
-            // Ambil ulang daftar, tetapi kegagalan GET tidak
-            // mengubah hasil registrasi menjadi seolah gagal.
-            let refreshed = false;
-
-            try {
-                const latest = await getAllProviderUsers();
-                setProviderUsers(latest);
-                refreshed = true;
-            } catch {
-                setRefreshKey((value) => value + 1);
-            }
+            const refreshed =
+                await refreshUsersAfterMutation();
 
             setModal(null);
             setForm(emptyForm());
+            setShowPassword(false);
 
             setNotice({
                 type: "success",
                 message: refreshed
                     ? "Akun Provider User berhasil ditambahkan."
-                    : "Registrasi akun berhasil. Daftar belum dapat diperbarui; silakan Refresh.",
+                    : "Akun berhasil ditambahkan. Silakan Refresh untuk memperbarui daftar.",
             });
         } catch (error) {
             setModalError(getErrorMessage(error));
@@ -1017,9 +1023,45 @@ const ProviderUser = () => {
         }
     };
 
-    const refreshData = () => {
-        setNotice(null);
-        setRefreshKey((value) => value + 1);
+    const handleChangeStatus = async () => {
+        if (!statusTarget || saving) return;
+
+        const nextStatus = getNextStatus(
+            statusTarget.status_provider_user
+        );
+
+        setSaving(true);
+        setModalError("");
+
+        try {
+            await updateProviderUserStatus(
+                statusTarget.id_provider_user,
+                nextStatus
+            );
+
+            const refreshed =
+                await refreshUsersAfterMutation();
+
+            setModal(null);
+            setSelectedUser(null);
+            setStatusTarget(null);
+
+            setNotice({
+                type: "success",
+                message:
+                    nextStatus === "ACTIVE"
+                        ? refreshed
+                            ? "Provider User berhasil diaktifkan."
+                            : "Akun berhasil diaktifkan. Silakan Refresh."
+                        : refreshed
+                            ? "Provider User berhasil dinonaktifkan."
+                            : "Akun berhasil dinonaktifkan. Silakan Refresh.",
+            });
+        } catch (error) {
+            setModalError(getErrorMessage(error));
+        } finally {
+            setSaving(false);
+        }
     };
 
     const modalErrorView = modalError ? (
@@ -1031,7 +1073,6 @@ const ProviderUser = () => {
                 size={16}
                 className="shrink-0"
             />
-
             <span>{modalError}</span>
         </div>
     ) : null;
@@ -1063,26 +1104,21 @@ const ProviderUser = () => {
                                     !form.name_provider_user.trim() ||
                                     !form.email_provider_user.trim() ||
                                     !form.password_provider_user ||
+                                    !form.phone_number_provider_user ||
                                     !form.id_provider ||
                                     !form.id_provider_role
                                 }
                                 className={primaryButton}
                             >
                                 {saving ? (
-                                    <>
-                                        <LoaderCircle
-                                            size={16}
-                                            className="animate-spin"
-                                        />
-
-                                        Menyimpan...
-                                    </>
+                                    <LoaderCircle
+                                        size={16}
+                                        className="animate-spin"
+                                    />
                                 ) : (
-                                    <>
-                                        <UserRoundPlus size={16} />
-                                        Tambah Akun
-                                    </>
+                                    <UserRoundPlus size={16} />
                                 )}
+                                {saving ? "Menyimpan..." : "Tambah Akun"}
                             </button>
                         </>
                     }
@@ -1121,7 +1157,7 @@ const ProviderUser = () => {
                             />
                         </div>
 
-                        {/* EMAIL / PHONE */}
+                        {/* EMAIL AND PHONE */}
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div>
                                 <label
@@ -1159,16 +1195,25 @@ const ProviderUser = () => {
                                 <input
                                     id="phone_number_provider_user"
                                     type="tel"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     value={form.phone_number_provider_user}
-                                    onChange={(event) =>
+                                    onChange={(event) => {
+                                        const onlyNumbers = event.target.value
+                                            .replace(/\D/g, "")
+                                            .slice(0, 15);
+
                                         updateForm(
                                             "phone_number_provider_user",
-                                            event.target.value
-                                        )
-                                    }
+                                            onlyNumbers
+                                        );
+                                    }}
                                     placeholder="081234567890"
                                     disabled={saving}
                                     required
+                                    minLength={8}
+                                    maxLength={15}
+                                    autoComplete="tel"
                                     className={inputClass}
                                 />
                             </div>
@@ -1186,7 +1231,9 @@ const ProviderUser = () => {
                             <div className="relative">
                                 <input
                                     id="password_provider_user"
-                                    type={showPassword ? "text" : "password"}
+                                    type={
+                                        showPassword ? "text" : "password"
+                                    }
                                     value={form.password_provider_user}
                                     onChange={(event) =>
                                         updateForm(
@@ -1323,8 +1370,12 @@ const ProviderUser = () => {
                                 disabled={saving}
                                 className={inputClass}
                             >
-                                <option value="ACTIVE">Active</option>
-                                <option value="INACTIVE">Inactive</option>
+                                <option value="ACTIVE">
+                                    Active
+                                </option>
+                                <option value="INACTIVE">
+                                    Inactive
+                                </option>
                             </select>
                         </div>
                     </form>
@@ -1333,33 +1384,71 @@ const ProviderUser = () => {
         }
 
         if (modal === "detail" && selectedUser) {
-            const user = selectedUser;
+            const user =
+                providerUsers.find(
+                    (item) =>
+                        item.id_provider_user ===
+                        selectedUser.id_provider_user
+                ) ?? selectedUser;
+
+            const isActive =
+                user.status_provider_user === "ACTIVE";
 
             return (
                 <Modal
                     title="Detail Provider User"
                     onClose={closeModal}
+                    busy={saving}
                     wide
                     footer={
-                        <button
-                            type="button"
-                            onClick={closeModal}
-                            className={secondaryButton}
-                        >
-                            Tutup
-                        </button>
+                        <>
+                            <button
+                                type="button"
+                                onClick={closeModal}
+                                disabled={saving}
+                                className={secondaryButton}
+                            >
+                                Tutup
+                            </button>
+
+                            {["ACTIVE", "INACTIVE"].includes(
+                                user.status_provider_user
+                            ) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => openStatus(user)}
+                                        disabled={saving}
+                                        className={
+                                            isActive
+                                                ? dangerButton
+                                                : successButton
+                                        }
+                                    >
+                                        {isActive ? (
+                                            <UserX size={16} />
+                                        ) : (
+                                            <UserCheck size={16} />
+                                        )}
+
+                                        {isActive
+                                            ? "Deactivate"
+                                            : "Activate"}
+                                    </button>
+                                )}
+                        </>
                     }
                 >
                     {/* USER HEADER */}
                     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-lg font-bold text-[#0866D8]">
+                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-blue-50 text-lg font-bold text-[#0866D8]">
                                 {getInitials(user.name_provider_user)}
                             </div>
 
                             <div className="min-w-0">
                                 <h3 className="wrap-break-word text-lg font-bold text-slate-950">
-                                    {user.name_provider_user || "Tanpa Nama"}
+                                    {user.name_provider_user ||
+                                        "Tanpa Nama"}
                                 </h3>
 
                                 <p className="mt-1 text-xs text-slate-500">
@@ -1387,22 +1476,18 @@ const ProviderUser = () => {
                                 label="ID Provider User"
                                 value={user.id_provider_user}
                             />
-
                             <InfoField
                                 label="Nama Lengkap"
                                 value={user.name_provider_user}
                             />
-
                             <InfoField
                                 label="Email"
                                 value={user.email_provider_user}
                             />
-
                             <InfoField
                                 label="Nomor Telepon"
                                 value={user.phone_number_provider_user}
                             />
-
                             <InfoField
                                 label="Status Akun"
                                 value={user.status_provider_user}
@@ -1422,7 +1507,6 @@ const ProviderUser = () => {
                                 label="Provider"
                                 value={providerName(user.id_provider)}
                             />
-
                             <InfoField
                                 label="ID Provider"
                                 value={user.id_provider}
@@ -1442,13 +1526,155 @@ const ProviderUser = () => {
                                 label="Role Provider"
                                 value={roleName(user.id_provider_role)}
                             />
-
                             <InfoField
                                 label="ID Role"
                                 value={user.id_provider_role}
                             />
                         </div>
                     </section>
+                </Modal>
+            );
+        }
+
+        if (modal === "status" && statusTarget) {
+            const nextStatus = getNextStatus(
+                statusTarget.status_provider_user
+            );
+
+            const activate = nextStatus === "ACTIVE";
+
+            return (
+                <Modal
+                    title={
+                        activate
+                            ? "Aktifkan Provider User?"
+                            : "Nonaktifkan Provider User?"
+                    }
+                    onClose={closeModal}
+                    busy={saving}
+                    footer={
+                        <>
+                            <button
+                                type="button"
+                                onClick={closeModal}
+                                disabled={saving}
+                                className={secondaryButton}
+                            >
+                                Batal
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    void handleChangeStatus()
+                                }
+                                disabled={saving}
+                                className={
+                                    activate
+                                        ? successButton
+                                        : dangerButton
+                                }
+                            >
+                                {saving ? (
+                                    <LoaderCircle
+                                        size={16}
+                                        className="animate-spin"
+                                    />
+                                ) : activate ? (
+                                    <UserCheck size={16} />
+                                ) : (
+                                    <UserX size={16} />
+                                )}
+
+                                {saving
+                                    ? "Memproses..."
+                                    : activate
+                                        ? "Ya, Aktifkan"
+                                        : "Ya, Nonaktifkan"}
+                            </button>
+                        </>
+                    }
+                >
+                    {modalErrorView}
+
+                    <div className="mb-4 flex items-center gap-3">
+                        <div
+                            className={`flex h-12 w-12 items-center justify-center rounded-xl ${activate
+                                ? "bg-emerald-50 text-emerald-600"
+                                : "bg-red-50 text-red-600"
+                                }`}
+                        >
+                            {activate ? (
+                                <UserCheck size={24} />
+                            ) : (
+                                <UserX size={24} />
+                            )}
+                        </div>
+
+                        <div>
+                            <h3 className="font-bold text-slate-950">
+                                {statusTarget.name_provider_user}
+                            </h3>
+                            <p className="text-xs text-slate-500">
+                                {statusTarget.email_provider_user}
+                            </p>
+                        </div>
+                    </div>
+
+                    <p className="text-sm leading-relaxed text-slate-600">
+                        {activate
+                            ? "Apakah kamu yakin ingin mengaktifkan kembali akun Provider User ini?"
+                            : "Apakah kamu yakin ingin menonaktifkan akun Provider User ini?"}
+                    </p>
+
+                    <div className="mt-4 space-y-3 rounded-lg bg-slate-50 p-4">
+                        <InfoField
+                            label="Provider"
+                            value={providerName(
+                                statusTarget.id_provider
+                            )}
+                        />
+
+                        <InfoField
+                            label="Role"
+                            value={roleName(
+                                statusTarget.id_provider_role
+                            )}
+                        />
+
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="text-xs text-slate-500">
+                                Status Saat Ini
+                            </span>
+                            <StatusBadge
+                                status={
+                                    statusTarget.status_provider_user
+                                }
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="text-xs text-slate-500">
+                                Status Baru
+                            </span>
+                            <StatusBadge status={nextStatus} />
+                        </div>
+                    </div>
+
+                    {!activate && (
+                        <div className="mt-4 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
+                            <AlertCircle
+                                size={16}
+                                className="shrink-0"
+                            />
+                            <span>
+                                Akun yang dinonaktifkan seharusnya
+                                tidak dapat login atau mengakses API.
+                                Pastikan pembatasan ini juga
+                                diterapkan oleh backend.
+                            </span>
+                        </div>
+                    )}
                 </Modal>
             );
         }
@@ -1470,12 +1696,12 @@ const ProviderUser = () => {
                     </h1>
 
                     <p className="mt-2 text-sm text-[#526789]">
-                        Kelola akun pengguna yang terhubung dengan
-                        masing-masing provider.
+                        Kelola akun pengguna yang terhubung
+                        dengan masing-masing provider.
                     </p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <button
                         type="button"
                         onClick={refreshData}
@@ -1484,7 +1710,9 @@ const ProviderUser = () => {
                     >
                         <RefreshCw
                             size={16}
-                            className={loading ? "animate-spin" : ""}
+                            className={
+                                loading ? "animate-spin" : ""
+                            }
                         />
                         Refresh
                     </button>
@@ -1568,7 +1796,9 @@ const ProviderUser = () => {
                         </div>
 
                         <p className="text-3xl font-bold text-slate-950">
-                            {loading || listError ? "—" : stat.value}
+                            {loading || listError
+                                ? "—"
+                                : stat.value}
                         </p>
                     </div>
                 ))}
@@ -1576,7 +1806,7 @@ const ProviderUser = () => {
 
             {/* TABLE CONTAINER */}
             <section className="overflow-hidden rounded-2xl border border-[#DBE4F0] bg-white shadow-sm">
-                {/* FILTER BAR */}
+                {/* FILTER HEADER */}
                 <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 p-5">
                     <div>
                         <h2 className="text-sm font-bold text-slate-950">
@@ -1599,13 +1829,14 @@ const ProviderUser = () => {
                             />
 
                             <input
+                                type="text"
                                 value={search}
                                 onChange={(event) => {
                                     setSearch(event.target.value);
                                     setPage(1);
                                 }}
                                 placeholder="Cari pengguna..."
-                                className={`${inputClass} pl-10`}
+                                className="w-full rounded-lg border border-[#DBE4F0] py-2.5 pl-10 pr-3 text-sm outline-none focus:border-[#0866D8]"
                             />
                         </div>
 
@@ -1617,12 +1848,17 @@ const ProviderUser = () => {
                                 setPage(1);
                             }}
                             aria-label="Filter status"
-                            className={inputClass}
+                            className={filterClass}
                         >
-                            <option value="ALL">Semua Status</option>
+                            <option value="ALL">
+                                Semua Status
+                            </option>
 
                             {statusOptions.map((status) => (
-                                <option key={status} value={status}>
+                                <option
+                                    key={status}
+                                    value={status}
+                                >
                                     {status}
                                 </option>
                             ))}
@@ -1636,9 +1872,11 @@ const ProviderUser = () => {
                                 setPage(1);
                             }}
                             aria-label="Filter provider"
-                            className={`${inputClass} max-w-48`}
+                            className={`${filterClass} max-w-44`}
                         >
-                            <option value="ALL">Semua Provider</option>
+                            <option value="ALL">
+                                Semua Provider
+                            </option>
 
                             {providerOptions.map((provider) => (
                                 <option
@@ -1658,12 +1896,17 @@ const ProviderUser = () => {
                                 setPage(1);
                             }}
                             aria-label="Filter role"
-                            className={`${inputClass} max-w-44`}
+                            className={filterClass}
                         >
-                            <option value="ALL">Semua Role</option>
+                            <option value="ALL">
+                                Semua Role
+                            </option>
 
                             {roleOptions.map((role) => (
-                                <option key={role.id} value={role.id}>
+                                <option
+                                    key={role.id}
+                                    value={role.id}
+                                >
                                     {role.name}
                                 </option>
                             ))}
@@ -1713,98 +1956,148 @@ const ProviderUser = () => {
                                         Status
                                     </th>
 
-                                    <th className="px-5 py-3 text-right text-xs font-semibold text-[#344F77]">
+                                    <th className="px-5 py-3 text-center text-xs font-semibold text-[#344F77]">
                                         Aksi
                                     </th>
                                 </tr>
                             </thead>
 
                             <tbody>
-                                {displayedUsers.map((user, index) => (
-                                    <tr
-                                        key={user.id_provider_user}
-                                        className="border-t border-slate-100 hover:bg-slate-50"
-                                    >
-                                        {/* NUMBER */}
-                                        <td className="px-5 py-4 text-slate-500">
-                                            {(currentPage - 1) * PAGE_SIZE +
-                                                index +
-                                                1}
-                                        </td>
+                                {displayedUsers.map((user, index) => {
+                                    const isActive =
+                                        user.status_provider_user === "ACTIVE";
 
-                                        {/* USER */}
-                                        <td className="px-5 py-4">
-                                            <div className="flex min-w-50 items-center gap-3">
-                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-[#0866D8]">
-                                                    {getInitials(
-                                                        user.name_provider_user
+                                    const canChangeStatus = [
+                                        "ACTIVE",
+                                        "INACTIVE",
+                                    ].includes(user.status_provider_user);
+
+                                    return (
+                                        <tr
+                                            key={user.id_provider_user}
+                                            className="border-t border-slate-100 hover:bg-slate-50"
+                                        >
+                                            {/* NUMBER */}
+                                            <td className="px-5 py-4 text-slate-500">
+                                                {(currentPage - 1) *
+                                                    PAGE_SIZE +
+                                                    index +
+                                                    1}
+                                            </td>
+
+                                            {/* USER */}
+                                            <td className="px-5 py-4">
+                                                <div className="flex min-w-50 items-center gap-3">
+                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-[#0866D8]">
+                                                        {getInitials(
+                                                            user.name_provider_user
+                                                        )}
+                                                    </div>
+
+                                                    <div className="min-w-0">
+                                                        <p className="max-w-52 truncate font-semibold text-slate-950">
+                                                            {user.name_provider_user ||
+                                                                "Tanpa Nama"}
+                                                        </p>
+
+                                                        <p className="mt-1 max-w-52 truncate text-xs text-slate-500">
+                                                            {user.email_provider_user ||
+                                                                `ID: ${user.id_provider_user}`}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            {/* PHONE */}
+                                            <td className="whitespace-nowrap px-5 py-4 text-slate-600">
+                                                {user.phone_number_provider_user ||
+                                                    "—"}
+                                            </td>
+
+                                            {/* PROVIDER */}
+                                            <td className="px-5 py-4">
+                                                <div className="flex min-w-33.75 items-center gap-2">
+                                                    <Building2
+                                                        size={16}
+                                                        className="shrink-0 text-slate-400"
+                                                    />
+
+                                                    <span className="font-medium text-slate-700">
+                                                        {providerName(
+                                                            user.id_provider
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            </td>
+
+                                            {/* ROLE */}
+                                            <td className="px-5 py-4">
+                                                <span className="inline-flex rounded-lg bg-[#F1F5FB] px-2.5 py-1 text-xs font-semibold text-[#344F77]">
+                                                    {roleName(
+                                                        user.id_provider_role
+                                                    )}
+                                                </span>
+                                            </td>
+
+                                            {/* STATUS */}
+                                            <td className="px-5 py-4 text-center">
+                                                <StatusBadge
+                                                    status={
+                                                        user.status_provider_user
+                                                    }
+                                                />
+                                            </td>
+
+                                            {/* ACTIONS */}
+                                            <td className="px-5 py-4">
+                                                <div className="flex min-w-max items-center justify-center gap-2">
+                                                    {/* DETAIL */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            openDetail(user)
+                                                        }
+                                                        title="Detail Provider User"
+                                                        aria-label={`Detail ${user.name_provider_user}`}
+                                                        className={`${iconButtonClass} bg-blue-50 text-[#0866D8] hover:bg-blue-100`}
+                                                    >
+                                                        <Eye size={18} />
+                                                    </button>
+
+                                                    {/* ACTIVATE / DEACTIVATE */}
+                                                    {canChangeStatus && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                openStatus(user)
+                                                            }
+                                                            disabled={saving}
+                                                            title={
+                                                                isActive
+                                                                    ? "Deactivate Provider User"
+                                                                    : "Activate Provider User"
+                                                            }
+                                                            aria-label={`${isActive
+                                                                ? "Nonaktifkan"
+                                                                : "Aktifkan"
+                                                                } ${user.name_provider_user}`}
+                                                            className={`${iconButtonClass} ${isActive
+                                                                ? "bg-red-50 text-red-600 hover:bg-red-100"
+                                                                : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                                                                }`}
+                                                        >
+                                                            {isActive ? (
+                                                                <UserX size={18} />
+                                                            ) : (
+                                                                <UserCheck size={18} />
+                                                            )}
+                                                        </button>
                                                     )}
                                                 </div>
-
-                                                <div className="min-w-0">
-                                                    <p className="max-w-52 truncate font-semibold text-slate-950">
-                                                        {user.name_provider_user ||
-                                                            "Tanpa Nama"}
-                                                    </p>
-
-                                                    <p className="mt-1 max-w-52 truncate text-xs text-slate-500">
-                                                        {user.email_provider_user ||
-                                                            `ID: ${user.id_provider_user}`}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </td>
-
-                                        {/* PHONE */}
-                                        <td className="px-5 py-4 text-slate-600">
-                                            {user.phone_number_provider_user ||
-                                                "—"}
-                                        </td>
-
-                                        {/* PROVIDER */}
-                                        <td className="px-5 py-4">
-                                            <div className="flex min-w-33.75 items-center gap-2">
-                                                <Building2
-                                                    size={16}
-                                                    className="shrink-0 text-slate-400"
-                                                />
-
-                                                <span className="font-medium text-slate-700">
-                                                    {providerName(user.id_provider)}
-                                                </span>
-                                            </div>
-                                        </td>
-
-                                        {/* ROLE */}
-                                        <td className="px-5 py-4">
-                                            <span className="inline-flex rounded-lg bg-[#F1F5FB] px-2.5 py-1 text-xs font-semibold text-[#344F77]">
-                                                {roleName(user.id_provider_role)}
-                                            </span>
-                                        </td>
-
-                                        {/* STATUS */}
-                                        <td className="px-5 py-4 text-center">
-                                            <StatusBadge
-                                                status={user.status_provider_user}
-                                            />
-                                        </td>
-
-                                        {/* ACTION */}
-                                        <td className="px-5 py-4">
-                                            <div className="flex items-center justify-end">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openDetail(user)}
-                                                    title="Detail Provider User"
-                                                    aria-label={`Detail ${user.name_provider_user}`}
-                                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-blue-50 text-[#0866D8] hover:bg-blue-100"
-                                                >
-                                                    <Eye size={18} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -1826,6 +2119,7 @@ const ProviderUser = () => {
                             </p>
 
                             <div className="flex items-center gap-3">
+                                {/* PREVIOUS */}
                                 <button
                                     type="button"
                                     disabled={currentPage === 1}
@@ -1844,12 +2138,16 @@ const ProviderUser = () => {
                                     {currentPage} / {totalPages}
                                 </span>
 
+                                {/* NEXT */}
                                 <button
                                     type="button"
                                     disabled={currentPage >= totalPages}
                                     onClick={() =>
                                         setPage((value) =>
-                                            Math.min(totalPages, value + 1)
+                                            Math.min(
+                                                totalPages,
+                                                value + 1
+                                            )
                                         )
                                     }
                                     aria-label="Halaman berikutnya"

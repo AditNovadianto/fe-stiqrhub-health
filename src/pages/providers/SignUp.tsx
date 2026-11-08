@@ -1,9 +1,14 @@
 
-import { useCallback, useEffect, useState } from "react";
+import {
+    useCallback,
+    useEffect,
+    useState,
+} from "react";
 
 import ProviderInformation from "../../components/providers/ProviderInformation";
 import ProviderDocuments from "../../components/providers/ProviderDocuments";
 import ProviderOTP from "../../components/providers/ProviderOTP";
+import PendingOtpEdit from "../../components/providers/PendingOTPEdit";
 import PendingApproval from "../../components/providers/PendingApproval";
 import CreateProviderUser from "../../components/providers/CreateProviderUser";
 import RejectedProvider from "../../components/providers/RejectedProvider";
@@ -52,11 +57,33 @@ export interface RegistrationData {
     otp_expires_at?: number;
 }
 
-const API_URI = (import.meta.env.VITE_API_URI || "").replace(/\/$/, "");
+interface ProviderDetailResponse {
+    success?: boolean;
+    message?: string;
+    provider?: {
+        id_provider?: number;
+        email_provider?: string;
+        status_provider?: string;
+    };
+    data?: {
+        id_provider?: number;
+        email_provider?: string;
+        status_provider?: string;
+    };
+}
 
-const REGISTRATION_KEY = "provider_registration";
-const DRAFT_KEY = "provider_registration_draft";
-const DRAFT_STEP_KEY = "provider_registration_draft_step";
+const API_URI = (
+    import.meta.env.VITE_API_URI || ""
+).replace(/\/$/, "");
+
+const REGISTRATION_KEY =
+    "provider_registration";
+
+const DRAFT_KEY =
+    "provider_registration_draft";
+
+const DRAFT_STEP_KEY =
+    "provider_registration_draft_step";
 
 const initialProviderData: ProviderFormData = {
     name_provider: "",
@@ -81,19 +108,32 @@ const initialDocuments: ProviderDocumentsData = {
     surat_izin_apotek: null,
 };
 
-const isProviderStatus = (status: unknown): status is ProviderStatus => {
+const isProviderStatus = (
+    status: unknown
+): status is ProviderStatus => {
     return (
         typeof status === "string" &&
-        ["PENDING_OTP", "PENDING_APPROVAL", "APPROVED", "REJECTED"].includes(
-            status
-        )
+        [
+            "PENDING_OTP",
+            "PENDING_APPROVAL",
+            "APPROVED",
+            "REJECTED",
+        ].includes(status)
     );
 };
 
-const isRegistrationData = (value: unknown): value is RegistrationData => {
-    if (!value || typeof value !== "object") return false;
+const isRegistrationData = (
+    value: unknown
+): value is RegistrationData => {
+    if (
+        !value ||
+        typeof value !== "object"
+    ) {
+        return false;
+    }
 
-    const data = value as Partial<RegistrationData>;
+    const data =
+        value as Partial<RegistrationData>;
 
     return (
         Number.isInteger(data.id_provider) &&
@@ -104,59 +144,65 @@ const isRegistrationData = (value: unknown): value is RegistrationData => {
     );
 };
 
-interface ProviderDetailResponse {
-    success?: boolean;
-    message?: string;
-    provider?: {
-        id_provider?: number;
-        email_provider?: string;
-        status_provider?: string;
-    };
-    data?: {
-        id_provider?: number;
-        email_provider?: string;
-        status_provider?: string;
-    };
-}
-
 const SignUp = () => {
-    const [step, setStep] = useState<RegistrationStep>("INFORMATION");
+    const [step, setStep] =
+        useState<RegistrationStep>("INFORMATION");
 
-    const [providerData, setProviderData] =
-        useState<ProviderFormData>(initialProviderData);
+    const [
+        editingPendingOtp,
+        setEditingPendingOtp,
+    ] = useState(false);
 
-    const [documents, setDocuments] =
-        useState<ProviderDocumentsData>(initialDocuments);
+    const [
+        providerData,
+        setProviderData,
+    ] = useState<ProviderFormData>(
+        initialProviderData
+    );
 
-    const [registration, setRegistration] =
-        useState<RegistrationData | null>(null);
+    const [
+        documents,
+        setDocuments,
+    ] = useState<ProviderDocumentsData>(
+        initialDocuments
+    );
 
-    const [isInitializing, setIsInitializing] = useState(true);
-
-    const [statusCheckError, setStatusCheckError] = useState<string | null>(
+    const [
+        registration,
+        setRegistration,
+    ] = useState<RegistrationData | null>(
         null
     );
 
-    const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+    const [
+        isInitializing,
+        setIsInitializing,
+    ] = useState(true);
 
-    const saveRegistration = useCallback((data: RegistrationData) => {
-        setRegistration(data);
-        setStep(data.status_provider);
+    const [
+        statusCheckError,
+        setStatusCheckError,
+    ] = useState<string | null>(
+        null
+    );
 
-        localStorage.setItem(REGISTRATION_KEY, JSON.stringify(data));
-    }, []);
+    const [
+        isCheckingStatus,
+        setIsCheckingStatus,
+    ] = useState(false);
 
-    const clearRegistration = useCallback(() => {
-        localStorage.removeItem(REGISTRATION_KEY);
-        localStorage.removeItem(DRAFT_KEY);
-        localStorage.removeItem(DRAFT_STEP_KEY);
+    const saveRegistration = useCallback(
+        (data: RegistrationData) => {
+            setRegistration(data);
+            setStep(data.status_provider);
 
-        setRegistration(null);
-        setProviderData({ ...initialProviderData });
-        setDocuments({ ...initialDocuments });
-        setStatusCheckError(null);
-        setStep("INFORMATION");
-    }, []);
+            localStorage.setItem(
+                REGISTRATION_KEY,
+                JSON.stringify(data)
+            );
+        },
+        []
+    );
 
     const fetchProviderStatus = useCallback(
         async (saved: RegistrationData) => {
@@ -165,17 +211,11 @@ const SignUp = () => {
 
             try {
                 if (!API_URI) {
-                    throw new Error("VITE_API_URI is not configured.");
+                    throw new Error(
+                        "VITE_API_URI is not configured."
+                    );
                 }
 
-                /*
-                 * Endpoint GET /provider/:id pada Postman
-                 * terlihat menggunakan Bearer Token.
-                 *
-                 * Token OTP bukan otomatis Bearer Token.
-                 * Gunakan Authorization hanya jika backend
-                 * menyediakan token onboarding yang sah.
-                 */
                 const response = await fetch(
                     `${API_URI}/provider/${saved.id_provider}`,
                     {
@@ -186,9 +226,12 @@ const SignUp = () => {
                     }
                 );
 
-                if (response.status === 401 || response.status === 403) {
+                if (
+                    response.status === 401 ||
+                    response.status === 403
+                ) {
                     throw new Error(
-                        "Status terbaru belum dapat diverifikasi karena endpoint provider memerlukan otorisasi. Progress terakhir tetap disimpan."
+                        "Unable to verify the latest provider status because authorization is required."
                     );
                 }
 
@@ -198,26 +241,37 @@ const SignUp = () => {
                     );
                 }
 
-                const result: ProviderDetailResponse = await response.json();
+                const result: ProviderDetailResponse =
+                    await response.json();
 
-                const provider = result.provider ?? result.data;
+                const provider =
+                    result.provider ?? result.data;
 
-                if (!provider || !isProviderStatus(provider.status_provider)) {
+                if (
+                    !provider ||
+                    !isProviderStatus(
+                        provider.status_provider
+                    )
+                ) {
                     throw new Error(
                         "Provider status response is invalid."
                     );
                 }
 
-                const newStatus = provider.status_provider;
+                const newStatus =
+                    provider.status_provider;
 
                 const updated: RegistrationData = {
                     ...saved,
                     email_provider:
-                        provider.email_provider ?? saved.email_provider,
+                        provider.email_provider ??
+                        saved.email_provider,
                     status_provider: newStatus,
                 };
 
-                if (newStatus !== "PENDING_OTP") {
+                if (
+                    newStatus !== "PENDING_OTP"
+                ) {
                     delete updated.otp_token;
                     delete updated.expires_in_seconds;
                     delete updated.otp_expires_at;
@@ -225,7 +279,10 @@ const SignUp = () => {
 
                 saveRegistration(updated);
             } catch (error) {
-                console.error("Check provider status error:", error);
+                console.error(
+                    "Check provider status error:",
+                    error
+                );
 
                 setStatusCheckError(
                     error instanceof Error
@@ -233,13 +290,7 @@ const SignUp = () => {
                         : "Unable to check the latest registration status."
                 );
 
-                /*
-                 * Jangan menganggap status cache sebagai
-                 * status yang sudah berhasil diverifikasi.
-                 *
-                 * Tetap tampilkan progress terakhir agar
-                 * pengguna tidak mengulang pendaftaran.
-                 */
+                // Pertahankan progress terakhir.
                 setStep(saved.status_provider);
             } finally {
                 setIsCheckingStatus(false);
@@ -253,53 +304,75 @@ const SignUp = () => {
 
         const initialize = async () => {
             try {
-                const stored = localStorage.getItem(REGISTRATION_KEY);
+                const stored =
+                    localStorage.getItem(
+                        REGISTRATION_KEY
+                    );
 
                 if (stored) {
                     try {
-                        const parsed = JSON.parse(stored);
+                        const parsed =
+                            JSON.parse(stored);
 
-                        if (isRegistrationData(parsed)) {
-                            let registrationData: RegistrationData = parsed;
+                        if (
+                            isRegistrationData(parsed)
+                        ) {
+                            let registrationData:
+                                RegistrationData = parsed;
 
-                            /*
-                             * Migrasi data lama:
-                             * expires_in_seconds saja tidak cukup
-                             * untuk mengetahui kapan OTP berakhir.
-                             *
-                             * Jangan mengarang waktu expiry baru.
-                             */
                             if (
-                                registrationData.status_provider === "PENDING_OTP" &&
+                                registrationData.status_provider ===
+                                "PENDING_OTP" &&
                                 !registrationData.otp_expires_at
                             ) {
                                 registrationData = {
                                     ...registrationData,
-                                    expires_in_seconds: undefined,
+                                    expires_in_seconds:
+                                        undefined,
                                 };
                             }
 
                             if (cancelled) return;
 
-                            setRegistration(registrationData);
-                            setStep(registrationData.status_provider);
+                            setRegistration(
+                                registrationData
+                            );
 
-                            await fetchProviderStatus(registrationData);
+                            setStep(
+                                registrationData.status_provider
+                            );
+
+                            await fetchProviderStatus(
+                                registrationData
+                            );
+
                             return;
                         }
 
-                        localStorage.removeItem(REGISTRATION_KEY);
+                        localStorage.removeItem(
+                            REGISTRATION_KEY
+                        );
                     } catch {
-                        localStorage.removeItem(REGISTRATION_KEY);
+                        localStorage.removeItem(
+                            REGISTRATION_KEY
+                        );
                     }
                 }
 
-                const draft = localStorage.getItem(DRAFT_KEY);
-                const draftStep = localStorage.getItem(DRAFT_STEP_KEY);
+                const draft =
+                    localStorage.getItem(
+                        DRAFT_KEY
+                    );
+
+                const draftStep =
+                    localStorage.getItem(
+                        DRAFT_STEP_KEY
+                    );
 
                 if (draft) {
                     try {
-                        const parsedDraft = JSON.parse(draft);
+                        const parsedDraft =
+                            JSON.parse(draft);
 
                         if (
                             parsedDraft &&
@@ -312,23 +385,23 @@ const SignUp = () => {
                             });
                         }
                     } catch {
-                        localStorage.removeItem(DRAFT_KEY);
+                        localStorage.removeItem(
+                            DRAFT_KEY
+                        );
                     }
                 }
 
-                /*
-                 * Berkas File tidak bisa dipulihkan secara
-                 * otomatis dari localStorage.
-                 *
-                 * Jika sebelumnya sudah Step Documents,
-                 * pengguna kembali ke tahap tersebut untuk
-                 * memilih dokumen lagi.
-                 */
+                // File harus dipilih ulang setelah reload.
                 setStep(
-                    draftStep === "DOCUMENTS" ? "DOCUMENTS" : "INFORMATION"
+                    draftStep === "DOCUMENTS"
+                        ? "DOCUMENTS"
+                        : "INFORMATION"
                 );
             } catch (error) {
-                console.error("Registration initialization error:", error);
+                console.error(
+                    "Registration initialization error:",
+                    error
+                );
 
                 if (!cancelled) {
                     setStatusCheckError(
@@ -349,32 +422,51 @@ const SignUp = () => {
         };
     }, [fetchProviderStatus]);
 
-    /*
-     * Simpan informasi provider secara lokal setelah
-     * proses inisialisasi selesai.
-     *
-     * Jangan overwrite draft sebelum data lama dipulihkan.
-     */
     useEffect(() => {
-        if (isInitializing || registration) return;
+        if (
+            isInitializing ||
+            registration
+        ) {
+            return;
+        }
 
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(providerData));
-    }, [providerData, registration, isInitializing]);
+        localStorage.setItem(
+            DRAFT_KEY,
+            JSON.stringify(providerData)
+        );
+    }, [
+        providerData,
+        registration,
+        isInitializing,
+    ]);
 
     useEffect(() => {
         if (
             isInitializing ||
             registration ||
-            (step !== "INFORMATION" && step !== "DOCUMENTS")
+            (
+                step !== "INFORMATION" &&
+                step !== "DOCUMENTS"
+            )
         ) {
             return;
         }
 
-        localStorage.setItem(DRAFT_STEP_KEY, step);
-    }, [step, registration, isInitializing]);
+        localStorage.setItem(
+            DRAFT_STEP_KEY,
+            step
+        );
+    }, [
+        step,
+        registration,
+        isInitializing,
+    ]);
 
-    const handleCreated = (data: RegistrationData) => {
-        const expirySeconds = data.expires_in_seconds;
+    const handleCreated = (
+        data: RegistrationData
+    ) => {
+        const expirySeconds =
+            data.expires_in_seconds;
 
         const normalized: RegistrationData = {
             ...data,
@@ -383,7 +475,8 @@ const SignUp = () => {
                 typeof expirySeconds === "number" &&
                     Number.isFinite(expirySeconds) &&
                     expirySeconds > 0
-                    ? Date.now() + expirySeconds * 1000
+                    ? Date.now() +
+                    expirySeconds * 1000
                     : undefined,
         };
 
@@ -393,6 +486,7 @@ const SignUp = () => {
         localStorage.removeItem(DRAFT_STEP_KEY);
 
         setStatusCheckError(null);
+        setEditingPendingOtp(false);
     };
 
     const handleVerified = () => {
@@ -407,35 +501,52 @@ const SignUp = () => {
         };
 
         saveRegistration(updated);
+
+        setEditingPendingOtp(false);
         setStatusCheckError(null);
     };
 
-    const handleStatusChange = (status: string) => {
-        if (!registration || !isProviderStatus(status)) return;
+    const handleStatusChange = (
+        status: string
+    ) => {
+        if (
+            !registration ||
+            !isProviderStatus(status)
+        ) {
+            return;
+        }
 
         const updated: RegistrationData = {
             ...registration,
             status_provider: status,
         };
 
-        if (status !== "PENDING_OTP") {
+        if (
+            status !== "PENDING_OTP"
+        ) {
             delete updated.otp_token;
             delete updated.expires_in_seconds;
             delete updated.otp_expires_at;
         }
 
         saveRegistration(updated);
+
+        setEditingPendingOtp(false);
         setStatusCheckError(null);
     };
 
     const handleProviderUserCreated = () => {
-        /*
-         * Hapus progress hanya setelah backend berhasil
-         * membuat provider user.
-         */
-        localStorage.removeItem(REGISTRATION_KEY);
-        localStorage.removeItem(DRAFT_KEY);
-        localStorage.removeItem(DRAFT_STEP_KEY);
+        localStorage.removeItem(
+            REGISTRATION_KEY
+        );
+
+        localStorage.removeItem(
+            DRAFT_KEY
+        );
+
+        localStorage.removeItem(
+            DRAFT_STEP_KEY
+        );
     };
 
     if (isInitializing) {
@@ -443,6 +554,7 @@ const SignUp = () => {
             <div className="flex min-h-screen items-center justify-center bg-gray-50">
                 <div className="text-center">
                     <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
+
                     <p className="mt-4 text-sm text-gray-500">
                         Checking your registration...
                     </p>
@@ -454,40 +566,52 @@ const SignUp = () => {
     return (
         <div className="min-h-screen bg-gray-50 px-4 py-8">
             <div className="mx-auto w-full max-w-5xl">
-                <ProviderProgress currentStep={step} />
+                <ProviderProgress
+                    currentStep={step}
+                />
 
-                {statusCheckError && registration && (
-                    <div
-                        role="status"
-                        className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4"
-                    >
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                                <p className="text-sm font-semibold text-amber-800">
-                                    Status check unavailable
-                                </p>
-                                <p className="mt-1 text-xs leading-5 text-amber-700">
-                                    {statusCheckError}
-                                </p>
+                {statusCheckError &&
+                    registration && (
+                        <div
+                            role="status"
+                            className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4"
+                        >
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-sm font-semibold text-amber-800">
+                                        Status check unavailable
+                                    </p>
+
+                                    <p className="mt-1 text-xs leading-5 text-amber-700">
+                                        {statusCheckError}
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        void fetchProviderStatus(
+                                            registration
+                                        )
+                                    }
+                                    disabled={isCheckingStatus}
+                                    className="rounded-lg border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                                >
+                                    {isCheckingStatus
+                                        ? "Checking..."
+                                        : "Retry"}
+                                </button>
                             </div>
-
-                            <button
-                                type="button"
-                                onClick={() => void fetchProviderStatus(registration)}
-                                disabled={isCheckingStatus}
-                                className="rounded-lg border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"
-                            >
-                                {isCheckingStatus ? "Checking..." : "Retry"}
-                            </button>
                         </div>
-                    </div>
-                )}
+                    )}
 
                 {step === "INFORMATION" && (
                     <ProviderInformation
                         data={providerData}
                         setData={setProviderData}
-                        onNext={() => setStep("DOCUMENTS")}
+                        onNext={() =>
+                            setStep("DOCUMENTS")
+                        }
                     />
                 )}
 
@@ -496,40 +620,85 @@ const SignUp = () => {
                         providerData={providerData}
                         documents={documents}
                         setDocuments={setDocuments}
-                        onBack={() => setStep("INFORMATION")}
+                        onBack={() =>
+                            setStep("INFORMATION")
+                        }
                         onCreated={handleCreated}
                     />
                 )}
 
-                {step === "PENDING_OTP" && registration && (
-                    <ProviderOTP
-                        registration={registration}
-                        onRegistrationChange={saveRegistration}
-                        onVerified={handleVerified}
-                    />
-                )}
+                {step === "PENDING_OTP" &&
+                    registration &&
+                    (
+                        editingPendingOtp ? (
+                            <PendingOtpEdit
+                                registration={registration}
+                                onBack={() =>
+                                    setEditingPendingOtp(false)
+                                }
+                            />
+                        ) : (
+                            <div className="space-y-4">
+                                <ProviderOTP
+                                    registration={registration}
+                                    onRegistrationChange={
+                                        saveRegistration
+                                    }
+                                    onVerified={
+                                        handleVerified
+                                    }
+                                />
 
-                {step === "PENDING_APPROVAL" && registration && (
-                    <PendingApproval
-                        registration={registration}
-                        onStatusChange={handleStatusChange}
-                    />
-                )}
+                                <div className="text-center">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setEditingPendingOtp(true)
+                                        }
+                                        className="text-sm font-semibold text-blue-600 hover:underline"
+                                    >
+                                        Edit Registration
+                                        Information / Documents
+                                    </button>
+                                </div>
+                            </div>
+                        )
+                    )}
 
-                {step === "APPROVED" && registration && (
-                    <CreateProviderUser
-                        providerId={registration.id_provider}
-                        providerEmail={registration.email_provider}
-                        onSuccess={handleProviderUserCreated}
-                    />
-                )}
+                {step === "PENDING_APPROVAL" &&
+                    registration && (
+                        <PendingApproval
+                            registration={registration}
+                            onStatusChange={
+                                handleStatusChange
+                            }
+                        />
+                    )}
 
-                {step === "REJECTED" && registration && (
-                    <RejectedProvider
-                        registration={registration}
-                        onRestart={clearRegistration}
-                    />
-                )}
+                {step === "APPROVED" &&
+                    registration && (
+                        <CreateProviderUser
+                            providerId={
+                                registration.id_provider
+                            }
+                            providerEmail={
+                                registration.email_provider
+                            }
+                            onSuccess={
+                                handleProviderUserCreated
+                            }
+                        />
+                    )}
+
+                {step === "REJECTED" &&
+                    registration && (
+                        <RejectedProvider
+                            registration={registration}
+                            onStatusChange={
+                                handleStatusChange
+                            }
+                        />
+                    )}
             </div>
         </div>
     );

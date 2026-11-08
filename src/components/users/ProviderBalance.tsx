@@ -8,7 +8,6 @@ import {
 
 import {
     AlertCircle,
-    ArrowDownUp,
     Building2,
     CheckCircle2,
     ChevronLeft,
@@ -1663,37 +1662,15 @@ const ProviderBalance = () => {
 
                                             {/* ACTIONS */}
                                             <td className="px-5 py-4">
-                                                <div className="flex min-w-max items-center justify-center gap-2">
-                                                    {/* DETAIL BY BALANCE ID */}
+                                                <div className="flex items-center justify-center">
                                                     <button
                                                         type="button"
-                                                        onClick={() =>
-                                                            openDetail(
-                                                                balance
-                                                            )
-                                                        }
+                                                        onClick={() => openDetail(balance)}
                                                         title="Detail Saldo"
                                                         aria-label={`Detail saldo provider ${balance.id_provider}`}
                                                         className={`${iconButtonClass} bg-blue-50 text-[#0866D8] hover:bg-blue-100`}
                                                     >
                                                         <Eye size={18} />
-                                                    </button>
-
-                                                    {/* BALANCE BY PROVIDER */}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            openProviderBalance(
-                                                                balance
-                                                            )
-                                                        }
-                                                        title="Cek Saldo Provider"
-                                                        aria-label={`Cek saldo provider ${balance.id_provider}`}
-                                                        className={`${iconButtonClass} bg-emerald-50 text-emerald-600 hover:bg-emerald-100`}
-                                                    >
-                                                        <ArrowDownUp
-                                                            size={18}
-                                                        />
                                                     </button>
                                                 </div>
                                             </td>

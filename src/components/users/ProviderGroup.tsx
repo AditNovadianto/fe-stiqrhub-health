@@ -734,27 +734,41 @@ const ProviderGroup = () => {
     const selectableProviders = useMemo(() => {
         const keyword = providerSearch.trim().toLowerCase();
 
+        // Jangan izinkan pemilihan jika data provider belum tersedia.
+        if (!providersLoaded) return [];
+
         return eligible.filter((provider) => {
             const known = providers.find(
                 (item) => item.id_provider === provider.id_provider
             );
 
-            const assignedGroup =
-                known?.id_provider_group ??
-                provider.id_provider_group;
+            // Status harus terkonfirmasi dari daftar provider.
+            if (!known) return false;
 
+            const status = known.status_provider?.trim().toUpperCase();
+
+            // Hanya provider APPROVED yang diperbolehkan.
+            if (status !== "APPROVED") return false;
+
+            const assignedGroup =
+                known.id_provider_group ?? provider.id_provider_group;
+
+            // Provider harus belum tergabung dalam group.
             if (assignedGroup !== null) return false;
 
             return (
-                provider.name_provider
-                    .toLowerCase()
-                    .includes(keyword) ||
-                (provider.email_provider || "")
+                known.name_provider.toLowerCase().includes(keyword) ||
+                (known.email_provider || "")
                     .toLowerCase()
                     .includes(keyword)
             );
         });
-    }, [eligible, providers, providerSearch]);
+    }, [
+        eligible,
+        providers,
+        providersLoaded,
+        providerSearch,
+    ]);
 
     const closeModal = useCallback(() => {
         if (saving) return;
@@ -888,6 +902,7 @@ const ProviderGroup = () => {
             saving ||
             selectedGroupId === null ||
             selectedIds.length === 0 ||
+            !providersLoaded ||
             selectedGroup?.status_provider_group !== "ACTIVE"
         ) {
             return;
@@ -897,32 +912,63 @@ const ProviderGroup = () => {
         setModalError("");
 
         try {
-            const freshEligible = await getEligibleProviders(
-                selectedGroupId
-            );
+            // Ambil data terbaru sebelum melakukan penambahan.
+            const [freshEligible, freshProviders] = await Promise.all([
+                getEligibleProviders(selectedGroupId),
+                getAllProviders(),
+            ]);
 
-            const freshIds = new Set(
+            const eligibleIds = new Set(
                 freshEligible
                     .filter((item) => item.id_provider_group === null)
                     .map((item) => item.id_provider)
             );
 
-            if (!selectedIds.every((id) => freshIds.has(id))) {
+            const providerMap = new Map(
+                freshProviders.map((provider) => [
+                    provider.id_provider,
+                    provider,
+                ])
+            );
+
+            // Semua provider yang dipilih harus APPROVED,
+            // belum tergabung dalam group, dan masih eligible.
+            const allValid = selectedIds.every((id) => {
+                const provider = providerMap.get(id);
+
+                return (
+                    !!provider &&
+                    provider.status_provider?.trim().toUpperCase() ===
+                    "APPROVED" &&
+                    provider.id_provider_group === null &&
+                    eligibleIds.has(id)
+                );
+            });
+
+            if (!allValid) {
+                setProviders(freshProviders);
+                setProvidersLoaded(true);
                 setEligible(freshEligible);
                 setSelectedIds([]);
 
                 throw new Error(
-                    "Daftar provider berubah. Silakan pilih lagi."
+                    "Hanya provider berstatus APPROVED dan belum tergabung dalam group yang dapat ditambahkan. Silakan pilih ulang."
                 );
             }
 
+            // Request hanya dijalankan setelah semua validasi lolos.
             await addProviders(selectedGroupId, selectedIds);
 
             const latestProviders = await getAllProviders();
+
             setProviders(latestProviders);
             setProvidersLoaded(true);
 
-            showNotice("success", "Provider berhasil ditambahkan.");
+            showNotice(
+                "success",
+                "Provider berhasil ditambahkan."
+            );
+
             setSelectedIds([]);
             setModal("detail");
         } catch (error) {
@@ -1281,6 +1327,7 @@ const ProviderGroup = () => {
                         handleAddProviders,
                         selectedIds.length === 0 ||
                         eligibleLoading ||
+                        !providersLoaded ||
                         !!eligibleError,
                         true
                     )}

@@ -263,6 +263,23 @@ const formatDateTime = (value: string): string => {
     }).format(date);
 };
 
+const formatDateOfBirth = (value: string): string => {
+    if (!value) return "—";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return new Intl.DateTimeFormat("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "Asia/Jakarta",
+    }).format(date);
+};
+
 const genderLabel = (value: string): string => {
     switch (value.trim().toUpperCase()) {
         case "MALE":
@@ -2148,10 +2165,9 @@ const Order = () => {
 
                                 <DetailField
                                     label="Tanggal Lahir"
-                                    value={
-                                        customer?.dob_customer ||
-                                        "—"
-                                    }
+                                    value={formatDateOfBirth(
+                                        customer?.dob_customer || ""
+                                    )}
                                 />
                             </div>
                         )}
