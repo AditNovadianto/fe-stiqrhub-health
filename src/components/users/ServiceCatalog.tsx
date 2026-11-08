@@ -1636,6 +1636,13 @@ const ServiceCatalog = () => {
 
             if (saving) return;
 
+
+            if (modal === "create" && !imageFile) {
+                setModalError("Gambar Layanan wajib diunggah.");
+                return;
+            }
+
+
             if (
                 !form.name_service.trim()
             ) {
@@ -2241,6 +2248,9 @@ const ServiceCatalog = () => {
                         <section className="border-t border-slate-100 pt-5">
                             <h3 className="mb-4 text-sm font-bold text-[#00357A]">
                                 Gambar Layanan
+                                {!editing && (
+                                    <span className="ml-1 text-red-500">*</span>
+                                )}
                             </h3>
 
                             {editing &&
@@ -2275,12 +2285,9 @@ const ServiceCatalog = () => {
                                 id="image-service"
                                 type="file"
                                 accept=".jpg,.jpeg,.png,.webp"
-                                disabled={
-                                    saving
-                                }
-                                onChange={
-                                    handleImageChange
-                                }
+                                required={!editing}
+                                disabled={saving}
+                                onChange={handleImageChange}
                                 className="sr-only"
                             />
 

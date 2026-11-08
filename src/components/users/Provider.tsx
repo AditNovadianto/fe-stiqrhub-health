@@ -3,8 +3,6 @@ import {
     useEffect,
     useMemo,
     useState,
-    type ChangeEvent,
-    type FormEvent,
     type ReactNode,
 } from "react";
 
@@ -23,12 +21,10 @@ import {
     Hospital,
     LoaderCircle,
     MapPin,
-    Pencil,
     RefreshCw,
     Search,
     ShieldCheck,
     ShieldX,
-    Upload,
     X,
 } from "lucide-react";
 
@@ -36,12 +32,7 @@ const PAGE_SIZE = 10;
 
 type ApiRecord = Record<string, unknown>;
 
-type ModalType =
-    | "detail"
-    | "edit"
-    | "approve"
-    | "reject"
-    | null;
+type ModalType = "detail" | "approve" | "reject" | null;
 
 type DocumentKey =
     | "akta_pendirian_perusahaan"
@@ -51,44 +42,22 @@ type DocumentKey =
     | "persetujuan_lingkungan"
     | "surat_izin_apotek";
 
-type UploadKey = DocumentKey | "logo_provider";
-
-type ProviderFormKey =
-    | "name_provider"
-    | "email_provider"
-    | "phone_number_provider"
-    | "address_provider"
-    | "province_provider"
-    | "city_provider"
-    | "district_provider"
-    | "postal_code_provider"
-    | "description_provider"
-    | "id_provider_category";
-
-type ProviderForm = Record<ProviderFormKey, string>;
-
 interface ProviderData {
     id_provider: number;
-
     name_provider: string;
     email_provider: string;
     phone_number_provider: string;
-
     address_provider: string;
     province_provider: string;
     city_provider: string;
     district_provider: string;
     postal_code_provider: string;
-
     description_provider: string;
     status_provider: string;
-
     logo_provider: string | null;
-
     id_platform: number | null;
     id_provider_category: number | null;
     id_provider_group: number | null;
-
     akta_pendirian_perusahaan: string | null;
     nomor_induk_berusaha: string | null;
     npwp: string | null;
@@ -117,8 +86,8 @@ interface ModalProps {
     children: ReactNode;
     footer?: ReactNode;
     onClose: () => void;
-    wide?: boolean;
     busy?: boolean;
+    wide?: boolean;
 }
 
 const DOCUMENT_FIELDS: {
@@ -151,44 +120,27 @@ const DOCUMENT_FIELDS: {
         },
     ];
 
-const EMPTY_FORM: ProviderForm = {
-    name_provider: "",
-    email_provider: "",
-    phone_number_provider: "",
-    address_provider: "",
-    province_provider: "",
-    city_provider: "",
-    district_provider: "",
-    postal_code_provider: "",
-    description_provider: "",
-    id_provider_category: "",
-};
-
-const primaryButton =
-    "cursor-pointer inline-flex items-center justify-center gap-2 rounded-lg bg-[#0866D8] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50";
-
 const secondaryButton =
-    "cursor-pointer inline-flex items-center justify-center gap-2 rounded-lg border border-[#DBE4F0] bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50";
+    "inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-[#DBE4F0] bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50";
 
-const inputClass =
-    "w-full rounded-lg border border-[#DBE4F0] bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-[#0866D8] focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50";
+const approveButton =
+    "inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50";
 
-const isRecord = (
-    value: unknown
-): value is ApiRecord => {
-    return (
-        value !== null &&
-        typeof value === "object" &&
-        !Array.isArray(value)
-    );
-};
+const rejectButton =
+    "inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50";
+
+const isRecord = (value: unknown): value is ApiRecord =>
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value);
+
+const toText = (value: unknown): string =>
+    value === null || value === undefined
+        ? ""
+        : String(value);
 
 const toNumber = (value: unknown): number | null => {
-    if (
-        value === null ||
-        value === undefined ||
-        value === ""
-    ) {
+    if (value === null || value === undefined || value === "") {
         return null;
     }
 
@@ -199,74 +151,45 @@ const toNumber = (value: unknown): number | null => {
         : null;
 };
 
-const toText = (value: unknown): string => {
-    if (value === null || value === undefined) {
-        return "";
-    }
+const normalizeStatus = (value: unknown): string =>
+    toText(value || "UNKNOWN").trim().toUpperCase();
 
-    return String(value);
-};
+// Hanya PENDING_APPROVAL yang boleh disetujui/ditolak.
+const isPendingStatus = (status: string): boolean =>
+    normalizeStatus(status) === "PENDING_APPROVAL";
 
-const normalizeStatus = (value: unknown): string => {
-    return toText(value || "UNKNOWN")
-        .trim()
-        .toUpperCase();
-};
-
-const isPendingStatus = (status: string): boolean => {
-    return [
-        "PENDING",
-        "WAITING",
-        "SUBMITTED",
-        "PENDING_APPROVAL",
-    ].includes(normalizeStatus(status));
-};
-
-const getErrorMessage = (error: unknown): string => {
-    return error instanceof Error
+const getErrorMessage = (error: unknown): string =>
+    error instanceof Error
         ? error.message
         : "Terjadi kesalahan. Silakan coba kembali.";
-};
 
 const getFileUrl = (value: unknown): string | null => {
     if (typeof value !== "string" || !value.trim()) {
         return null;
     }
 
-    const raw = value.trim();
-
     try {
-        const url = new URL(raw, `${import.meta.env.VITE_API_URI}/`);
+        const url = new URL(value.trim(), `${import.meta.env.VITE_API_URI}/`);
 
-        if (
-            url.protocol !== "http:" &&
-            url.protocol !== "https:"
-        ) {
-            return null;
-        }
-
-        return url.href;
+        return ["http:", "https:"].includes(url.protocol)
+            ? url.href
+            : null;
     } catch {
         return null;
     }
 };
 
-const getToken = (): string | null => {
-    return (
-        sessionStorage.getItem("admin_token") ??
-        localStorage.getItem("admin_token")
-    );
-};
+const getToken = (): string | null =>
+    sessionStorage.getItem("admin_token") ??
+    localStorage.getItem("admin_token");
 
 const clearSession = (): void => {
-    [
-        "admin_token",
-        "admin_user",
-        "admin_role",
-    ].forEach((key) => {
-        sessionStorage.removeItem(key);
-        localStorage.removeItem(key);
-    });
+    ["admin_token", "admin_user", "admin_role"].forEach(
+        (key) => {
+            sessionStorage.removeItem(key);
+            localStorage.removeItem(key);
+        }
+    );
 };
 
 const extractArray = (
@@ -311,7 +234,7 @@ const extractArray = (
             try {
                 return extractArray(value, keys, depth + 1);
             } catch {
-                // Periksa properti berikutnya.
+                // Coba properti berikutnya.
             }
         }
     }
@@ -345,13 +268,9 @@ const extractObject = (
     for (const key of [...keys, "data"]) {
         if (isRecord(payload[key])) {
             try {
-                return extractObject(
-                    payload[key],
-                    keys,
-                    depth + 1
-                );
+                return extractObject(payload[key], keys, depth + 1);
             } catch {
-                // Periksa field berikutnya.
+                // Coba properti berikutnya.
             }
         }
     }
@@ -368,13 +287,11 @@ const normalizeProvider = (
 
     return {
         id_provider: id,
-
         name_provider: toText(row.name_provider),
         email_provider: toText(row.email_provider),
         phone_number_provider: toText(
             row.phone_number_provider
         ),
-
         address_provider: toText(row.address_provider),
         province_provider: toText(row.province_provider),
         city_provider: toText(row.city_provider),
@@ -382,78 +299,40 @@ const normalizeProvider = (
         postal_code_provider: toText(
             row.postal_code_provider
         ),
-
         description_provider: toText(
             row.description_provider
         ),
-
         status_provider: normalizeStatus(
             row.status_provider
         ),
-
         logo_provider: getFileUrl(row.logo_provider),
-
         id_platform: toNumber(row.id_platform),
-
         id_provider_category: toNumber(
             row.id_provider_category
         ),
-
-        id_provider_group: toNumber(
-            row.id_provider_group
-        ),
-
+        id_provider_group: toNumber(row.id_provider_group),
         akta_pendirian_perusahaan: getFileUrl(
             row.akta_pendirian_perusahaan
         ),
-
         nomor_induk_berusaha: getFileUrl(
             row.nomor_induk_berusaha
         ),
-
         npwp: getFileUrl(row.npwp),
-
         sertifikat_standard: getFileUrl(
             row.sertifikat_standard
         ),
-
         persetujuan_lingkungan: getFileUrl(
             row.persetujuan_lingkungan
         ),
-
         surat_izin_apotek: getFileUrl(
             row.surat_izin_apotek
         ),
     };
 };
 
-const providerToForm = (
-    provider: ProviderData
-): ProviderForm => {
-    return {
-        name_provider: provider.name_provider,
-        email_provider: provider.email_provider,
-        phone_number_provider:
-            provider.phone_number_provider,
-
-        address_provider: provider.address_provider,
-        province_provider: provider.province_provider,
-        city_provider: provider.city_provider,
-        district_provider: provider.district_provider,
-        postal_code_provider: provider.postal_code_provider,
-
-        description_provider:
-            provider.description_provider,
-
-        id_provider_category:
-            provider.id_provider_category?.toString() ?? "",
-    };
-};
-
 class UnauthorizedError extends Error {
     constructor() {
         super("Sesi telah berakhir. Silakan login kembali.");
-
         this.name = "UnauthorizedError";
     }
 }
@@ -468,17 +347,18 @@ const apiRequest = async (
         throw new UnauthorizedError();
     }
 
-    const response = await fetch(
-        `${import.meta.env.VITE_API_URI}${endpoint}`,
-        {
-            ...options,
-            headers: {
-                Accept: "application/json",
-                Authorization: `Bearer ${token}`,
-                ...options.headers,
-            },
-        }
-    );
+    if (!import.meta.env.VITE_API_URI) {
+        throw new Error("VITE_API_URI belum dikonfigurasi.");
+    }
+
+    const headers = new Headers(options.headers);
+    headers.set("Accept", "application/json");
+    headers.set("Authorization", `Bearer ${token}`);
+
+    const response = await fetch(`${import.meta.env.VITE_API_URI}${endpoint}`, {
+        ...options,
+        headers,
+    });
 
     if (response.status === 401) {
         throw new UnauthorizedError();
@@ -492,8 +372,7 @@ const apiRequest = async (
     if (contentType.includes("application/json")) {
         payload = await response.json();
     } else {
-        const text = await response.text();
-        payload = text || null;
+        payload = (await response.text()) || null;
     }
 
     if (!response.ok) {
@@ -507,10 +386,7 @@ const apiRequest = async (
         );
     }
 
-    if (
-        isRecord(payload) &&
-        payload.success === false
-    ) {
+    if (isRecord(payload) && payload.success === false) {
         throw new Error(
             typeof payload.message === "string"
                 ? payload.message
@@ -571,12 +447,8 @@ const getAllGroups = async (
         "groups",
     ])
         .map((row) => ({
-            id_provider_group: toNumber(
-                row.id_provider_group
-            ),
-            name_provider_group: toText(
-                row.name_provider_group
-            ),
+            id_provider_group: toNumber(row.id_provider_group),
+            name_provider_group: toText(row.name_provider_group),
         }))
         .filter(
             (
@@ -615,54 +487,18 @@ const getAllCategories = async (
         );
 };
 
-const approveProvider = (id: number) => {
-    return apiRequest(`/provider/${id}/approve`, {
+// Keputusan approval tetap tersedia untuk PENDING_APPROVAL.
+const approveProvider = (id: number) =>
+    apiRequest(`/provider/${id}/approve`, {
         method: "PATCH",
     });
-};
 
-const rejectProvider = (id: number) => {
-    return apiRequest(`/provider/${id}/reject`, {
+const rejectProvider = (id: number) =>
+    apiRequest(`/provider/${id}/reject`, {
         method: "PATCH",
     });
-};
 
-const buildFormData = (
-    form: ProviderForm,
-    files: Partial<Record<UploadKey, File>>
-): FormData => {
-    const data = new FormData();
-
-    (
-        Object.keys(form) as ProviderFormKey[]
-    ).forEach((key) => {
-        data.append(key, form[key]);
-    });
-
-    (
-        Object.entries(files) as [
-            UploadKey,
-            File | undefined,
-        ][]
-    ).forEach(([key, file]) => {
-        if (file) {
-            data.append(key, file);
-        }
-    });
-
-    return data;
-};
-
-const updateProvider = (
-    id: number,
-    form: ProviderForm,
-    files: Partial<Record<UploadKey, File>>
-) => {
-    return apiRequest(`/provider/${id}`, {
-        method: "PATCH",
-        body: buildFormData(form, files),
-    });
-};
+// Tidak ada fungsi UPDATE profil provider.
 
 const StatusBadge = ({
     status,
@@ -674,11 +510,13 @@ const StatusBadge = ({
     const color =
         value === "APPROVED"
             ? "bg-emerald-50 text-emerald-700"
-            : isPendingStatus(value)
-                ? "bg-amber-50 text-amber-700"
-                : value === "REJECTED"
-                    ? "bg-red-50 text-red-700"
-                    : "bg-slate-100 text-slate-600";
+            : value === "PENDING_OTP"
+                ? "bg-blue-50 text-blue-700"
+                : isPendingStatus(value)
+                    ? "bg-amber-50 text-amber-700"
+                    : value === "REJECTED"
+                        ? "bg-red-50 text-red-700"
+                        : "bg-slate-100 text-slate-600";
 
     return (
         <span
@@ -693,36 +531,26 @@ const LoadingState = ({
     label = "Memuat data...",
 }: {
     label?: string;
-}) => {
-    return (
-        <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-slate-500">
-            <LoaderCircle
-                size={18}
-                className="animate-spin text-[#0866D8]"
-            />
-            {label}
-        </div>
-    );
-};
+}) => (
+    <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-slate-500">
+        <LoaderCircle
+            size={18}
+            className="animate-spin text-[#0866D8]"
+        />
+        {label}
+    </div>
+);
 
 const EmptyState = ({
     message,
 }: {
     message: string;
-}) => {
-    return (
-        <div className="flex min-h-40 flex-col items-center justify-center gap-2 p-5 text-center">
-            <Hospital
-                size={28}
-                className="text-slate-300"
-            />
-
-            <p className="text-sm text-slate-500">
-                {message}
-            </p>
-        </div>
-    );
-};
+}) => (
+    <div className="flex min-h-40 flex-col items-center justify-center gap-2 p-5 text-center">
+        <Hospital size={28} className="text-slate-300" />
+        <p className="text-sm text-slate-500">{message}</p>
+    </div>
+);
 
 const DetailField = ({
     label,
@@ -730,41 +558,25 @@ const DetailField = ({
 }: {
     label: string;
     value?: string | number | null;
-}) => {
-    const display =
-        value === null ||
-            value === undefined ||
-            value === ""
-            ? "—"
-            : value;
-
-    return (
-        <div className="min-w-0">
-            <p className="text-xs text-[#526789]">
-                {label}
-            </p>
-
-            <p className="mt-1 wrap-break-word text-sm font-medium text-slate-900">
-                {display}
-            </p>
-        </div>
-    );
-};
+}) => (
+    <div className="min-w-0">
+        <p className="text-xs text-[#526789]">{label}</p>
+        <p className="mt-1 wrap-break-word text-sm font-medium text-slate-900">
+            {value === null || value === undefined || value === ""
+                ? "—"
+                : value}
+        </p>
+    </div>
+);
 
 const Modal = ({
     title,
     children,
     footer,
     onClose,
-    wide = false,
     busy = false,
+    wide = false,
 }: ModalProps) => {
-    const onCloseRef = useState(() => onClose)[0];
-
-    // onCloseRef is not needed for rendering.
-    // The effect below is intentionally only used
-    // for keyboard handling.
-
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape" && !busy) {
@@ -772,10 +584,7 @@ const Modal = ({
             }
         };
 
-        document.addEventListener(
-            "keydown",
-            onKeyDown
-        );
+        document.addEventListener("keydown", onKeyDown);
 
         return () => {
             document.removeEventListener(
@@ -784,8 +593,6 @@ const Modal = ({
             );
         };
     }, [busy, onClose]);
-
-    void onCloseRef;
 
     return (
         <div
@@ -808,7 +615,6 @@ const Modal = ({
                     : "max-h-[90dvh] max-w-md"
                     }`}
             >
-                {/* HEADER */}
                 <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
                     <h2 className="text-lg font-bold text-slate-950">
                         {title}
@@ -825,12 +631,10 @@ const Modal = ({
                     </button>
                 </div>
 
-                {/* BODY */}
-                <div className="min-h-0 flex-1 overflow-y-auto p-5 scrollbar-gutter-stable">
+                <div className="min-h-0 flex-1 overflow-y-auto p-5">
                     {children}
                 </div>
 
-                {/* FOOTER */}
                 {footer && (
                     <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 px-5 py-4">
                         {footer}
@@ -844,12 +648,8 @@ const Modal = ({
 const Provider = () => {
     const navigate = useNavigate();
 
-    const [providers, setProviders] =
-        useState<ProviderData[]>([]);
-
-    const [groups, setGroups] =
-        useState<ProviderGroupData[]>([]);
-
+    const [providers, setProviders] = useState<ProviderData[]>([]);
+    const [groups, setGroups] = useState<ProviderGroupData[]>([]);
     const [categories, setCategories] =
         useState<ProviderCategoryData[]>([]);
 
@@ -862,46 +662,23 @@ const Provider = () => {
     const [detail, setDetail] =
         useState<ProviderData | null>(null);
 
-    const [form, setForm] = useState<ProviderForm>({
-        ...EMPTY_FORM,
-    });
-
-    const [files, setFiles] = useState<
-        Partial<Record<UploadKey, File>>
-    >({});
-
-    const [modal, setModal] =
-        useState<ModalType>(null);
-
-    const [search, setSearch] =
-        useState("");
-
-    const [statusFilter, setStatusFilter] =
-        useState("ALL");
-
+    const [modal, setModal] = useState<ModalType>(null);
+    const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState("ALL");
     const [page, setPage] = useState(1);
 
     const [loading, setLoading] = useState(true);
-
-    const [detailLoading, setDetailLoading] =
-        useState(false);
-
+    const [detailLoading, setDetailLoading] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    const [listError, setListError] =
-        useState("");
-
-    const [detailError, setDetailError] =
-        useState("");
-
-    const [modalError, setModalError] =
-        useState("");
+    const [listError, setListError] = useState("");
+    const [detailError, setDetailError] = useState("");
+    const [modalError, setModalError] = useState("");
 
     const [notification, setNotification] =
         useState<NotificationData | null>(null);
 
-    const [refreshKey, setRefreshKey] =
-        useState(0);
+    const [refreshKey, setRefreshKey] = useState(0);
 
     const handleApiError = useCallback(
         (error: unknown): boolean => {
@@ -928,6 +705,7 @@ const Provider = () => {
     };
 
     const refreshData = () => {
+        setNotification(null);
         setRefreshKey((current) => current + 1);
     };
 
@@ -957,13 +735,9 @@ const Provider = () => {
                 return;
             }
 
-            const [
-                providerResult,
-                groupResult,
-                categoryResult,
-            ] = results;
+            const [providerResult, groupResult, categoryResult] =
+                results;
 
-            // PROVIDERS
             if (providerResult.status === "fulfilled") {
                 setProviders(providerResult.value);
             } else {
@@ -973,19 +747,17 @@ const Provider = () => {
                 );
             }
 
-            // GROUPS
-            if (groupResult.status === "fulfilled") {
-                setGroups(groupResult.value);
-            } else {
-                setGroups([]);
-            }
+            setGroups(
+                groupResult.status === "fulfilled"
+                    ? groupResult.value
+                    : []
+            );
 
-            // CATEGORIES
-            if (categoryResult.status === "fulfilled") {
-                setCategories(categoryResult.value);
-            } else {
-                setCategories([]);
-            }
+            setCategories(
+                categoryResult.status === "fulfilled"
+                    ? categoryResult.value
+                    : []
+            );
 
             setLoading(false);
         };
@@ -996,20 +768,14 @@ const Provider = () => {
     }, [refreshKey, handleApiError]);
 
     const selectedProvider = useMemo(() => {
-        if (selectedId === null) {
-            return null;
-        }
+        if (selectedId === null) return null;
 
-        const latest = providers.find(
-            (provider) => provider.id_provider === selectedId
+        return (
+            providers.find(
+                (provider) => provider.id_provider === selectedId
+            ) ?? selectedSnapshot
         );
-
-        return latest ?? selectedSnapshot;
-    }, [
-        providers,
-        selectedId,
-        selectedSnapshot,
-    ]);
+    }, [providers, selectedId, selectedSnapshot]);
 
     const displayedDetail =
         detail?.id_provider === selectedId
@@ -1019,49 +785,37 @@ const Provider = () => {
     const getGroupName = (id: number | null): string => {
         if (id === null) return "Belum memiliki group";
 
-        const group = groups.find(
-            (item) => item.id_provider_group === id
+        return (
+            groups.find(
+                (group) => group.id_provider_group === id
+            )?.name_provider_group || `Group #${id}`
         );
-
-        return group?.name_provider_group || `Group #${id}`;
     };
 
-    const getCategoryName = (
-        id: number | null
-    ): string => {
+    const getCategoryName = (id: number | null): string => {
         if (id === null) return "—";
 
-        const category = categories.find(
-            (item) => item.id_provider_category === id
-        );
-
         return (
-            category?.name_provider_category ||
-            `Kategori #${id}`
+            categories.find(
+                (category) => category.id_provider_category === id
+            )?.name_provider_category || `Kategori #${id}`
         );
     };
 
-    const totalProviders = providers.length;
-
     const approvedCount = providers.filter(
-        (provider) =>
-            provider.status_provider === "APPROVED"
+        (provider) => provider.status_provider === "APPROVED"
     ).length;
 
     const pendingCount = providers.filter(
-        (provider) =>
-            isPendingStatus(provider.status_provider)
+        (provider) => isPendingStatus(provider.status_provider)
     ).length;
 
     const rejectedCount = providers.filter(
-        (provider) =>
-            provider.status_provider === "REJECTED"
+        (provider) => provider.status_provider === "REJECTED"
     ).length;
 
     const filteredProviders = useMemo(() => {
-        const keyword = search
-            .trim()
-            .toLowerCase();
+        const keyword = search.trim().toLowerCase();
 
         return providers.filter((provider) => {
             const searchFields = [
@@ -1073,35 +827,26 @@ const Provider = () => {
                 String(provider.id_provider),
             ];
 
-            const matchSearch = searchFields.some(
-                (value) =>
-                    value.toLowerCase().includes(keyword)
+            const matchesSearch = searchFields.some((value) =>
+                value.toLowerCase().includes(keyword)
             );
 
-            const matchStatus =
-                statusFilter === "ALL"
-                    ? true
-                    : statusFilter === "PENDING"
-                        ? isPendingStatus(provider.status_provider)
-                        : provider.status_provider === statusFilter;
+            const matchesStatus =
+                statusFilter === "ALL" ||
+                (statusFilter === "PENDING" &&
+                    isPendingStatus(provider.status_provider)) ||
+                provider.status_provider === statusFilter;
 
-            return matchSearch && matchStatus;
+            return matchesSearch && matchesStatus;
         });
-    }, [
-        providers,
-        search,
-        statusFilter,
-    ]);
+    }, [providers, search, statusFilter]);
 
     const totalPages = Math.max(
         1,
         Math.ceil(filteredProviders.length / PAGE_SIZE)
     );
 
-    const currentPage = Math.min(
-        page,
-        totalPages
-    );
+    const currentPage = Math.min(page, totalPages);
 
     const displayedProviders = filteredProviders.slice(
         (currentPage - 1) * PAGE_SIZE,
@@ -1109,10 +854,7 @@ const Provider = () => {
     );
 
     useEffect(() => {
-        if (
-            selectedId === null ||
-            modal !== "detail"
-        ) {
+        if (selectedId === null || modal !== "detail") {
             return;
         }
 
@@ -1128,16 +870,14 @@ const Provider = () => {
                     controller.signal
                 );
 
-                if (controller.signal.aborted) return;
-
-                setDetail(result);
+                if (!controller.signal.aborted) {
+                    setDetail(result);
+                }
             } catch (error) {
-                if (controller.signal.aborted) return;
-
-                if (!handleApiError(error)) {
-                    setDetailError(
-                        getErrorMessage(error)
-                    );
+                if (!controller.signal.aborted) {
+                    if (!handleApiError(error)) {
+                        setDetailError(getErrorMessage(error));
+                    }
                 }
             } finally {
                 if (!controller.signal.aborted) {
@@ -1149,11 +889,7 @@ const Provider = () => {
         void loadDetail();
 
         return () => controller.abort();
-    }, [
-        selectedId,
-        modal,
-        handleApiError,
-    ]);
+    }, [selectedId, modal, handleApiError]);
 
     const closeModal = useCallback(() => {
         if (saving) return;
@@ -1162,163 +898,35 @@ const Provider = () => {
         setSelectedId(null);
         setSelectedSnapshot(null);
         setDetail(null);
-
-        setForm({ ...EMPTY_FORM });
-        setFiles({});
-
-        setModalError("");
         setDetailError("");
+        setModalError("");
     }, [saving]);
 
     const openDetail = (provider: ProviderData) => {
         setSelectedId(provider.id_provider);
         setSelectedSnapshot(provider);
         setDetail(provider);
-
-        setModalError("");
         setDetailError("");
-
-        setModal("detail");
-    };
-
-    const openEdit = (provider: ProviderData) => {
-        setSelectedId(provider.id_provider);
-        setSelectedSnapshot(provider);
-
-        setForm(providerToForm(provider));
-        setFiles({});
-
         setModalError("");
-        setModal("edit");
+        setModal("detail");
     };
 
     const openApproval = (
         provider: ProviderData,
         type: "approve" | "reject"
     ) => {
+        if (!isPendingStatus(provider.status_provider)) {
+            notify(
+                "error",
+                "Hanya provider dengan status PENDING_APPROVAL yang dapat diproses."
+            );
+            return;
+        }
+
         setSelectedId(provider.id_provider);
         setSelectedSnapshot(provider);
-
         setModalError("");
         setModal(type);
-    };
-
-    const updateForm = (
-        key: ProviderFormKey,
-        value: string
-    ) => {
-        setForm((current) => ({
-            ...current,
-            [key]: value,
-        }));
-    };
-
-    const handleFileChange = (
-        key: UploadKey,
-        event: ChangeEvent<HTMLInputElement>
-    ) => {
-        const file = event.target.files?.[0];
-
-        if (!file) return;
-
-        const extension = file.name
-            .split(".")
-            .pop()
-            ?.toLowerCase();
-
-        const isLogo = key === "logo_provider";
-
-        const allowed = isLogo
-            ? ["jpg", "jpeg", "png", "webp"]
-            : ["pdf"];
-
-        if (
-            !extension ||
-            !allowed.includes(extension)
-        ) {
-            setModalError(
-                isLogo
-                    ? "Logo harus berupa JPG, PNG, atau WEBP."
-                    : "Dokumen harus berupa PDF."
-            );
-
-            event.target.value = "";
-            return;
-        }
-
-        const maxSize = isLogo
-            ? 5 * 1024 * 1024
-            : 10 * 1024 * 1024;
-
-        if (file.size > maxSize) {
-            setModalError(
-                isLogo
-                    ? "Ukuran logo maksimal 5 MB."
-                    : "Ukuran dokumen maksimal 10 MB."
-            );
-
-            event.target.value = "";
-            return;
-        }
-
-        setModalError("");
-
-        setFiles((current) => ({
-            ...current,
-            [key]: file,
-        }));
-    };
-
-    const handleSaveProvider = async (
-        event: FormEvent<HTMLFormElement>
-    ) => {
-        event.preventDefault();
-
-        if (
-            saving ||
-            selectedId === null
-        ) {
-            return;
-        }
-
-        if (!form.name_provider.trim()) {
-            setModalError("Nama provider wajib diisi.");
-            return;
-        }
-
-        setSaving(true);
-        setModalError("");
-
-        try {
-            await updateProvider(
-                selectedId,
-                form,
-                files
-            );
-
-            // Sync data terbaru.
-            const latest = await getAllProviders();
-
-            setProviders(latest);
-
-            setModal(null);
-            setSelectedId(null);
-            setSelectedSnapshot(null);
-            setDetail(null);
-
-            notify(
-                "success",
-                "Data provider berhasil diperbarui."
-            );
-        } catch (error) {
-            if (!handleApiError(error)) {
-                setModalError(
-                    getErrorMessage(error)
-                );
-            }
-        } finally {
-            setSaving(false);
-        }
     };
 
     const handleApproval = async () => {
@@ -1331,6 +939,13 @@ const Provider = () => {
             return;
         }
 
+        if (!isPendingStatus(selectedProvider.status_provider)) {
+            setModalError(
+                "Hanya provider PENDING_APPROVAL yang dapat diproses."
+            );
+            return;
+        }
+
         const action = modal;
         const providerId = selectedId;
 
@@ -1338,6 +953,15 @@ const Provider = () => {
         setModalError("");
 
         try {
+            // Periksa status terkini sebelum mengirim keputusan.
+            const freshProvider = await getProviderDetail(providerId);
+
+            if (!isPendingStatus(freshProvider.status_provider)) {
+                throw new Error(
+                    "Status provider sudah berubah. Silakan refresh data."
+                );
+            }
+
             if (action === "approve") {
                 await approveProvider(providerId);
             } else {
@@ -1345,26 +969,7 @@ const Provider = () => {
             }
 
             const latest = await getAllProviders();
-
             setProviders(latest);
-
-            const updated = latest.find(
-                (provider) =>
-                    provider.id_provider === providerId
-            );
-
-            const expectedStatus =
-                action === "approve"
-                    ? "APPROVED"
-                    : "REJECTED";
-
-            if (
-                updated?.status_provider !== expectedStatus
-            ) {
-                throw new Error(
-                    "Status provider belum berubah di backend."
-                );
-            }
 
             setModal(null);
             setSelectedId(null);
@@ -1379,126 +984,67 @@ const Provider = () => {
             );
         } catch (error) {
             if (!handleApiError(error)) {
-                setModalError(
-                    getErrorMessage(error)
-                );
+                setModalError(getErrorMessage(error));
             }
         } finally {
             setSaving(false);
         }
     };
 
-    const renderInput = (
-        key: ProviderFormKey,
-        label: string,
-        type = "text"
-    ) => {
-        return (
-            <div>
-                <label
-                    htmlFor={key}
-                    className="mb-1.5 block text-xs font-semibold text-slate-700"
-                >
-                    {label}
-                </label>
+    const renderDocuments = (provider: ProviderData) => (
+        <div className="grid gap-3 sm:grid-cols-2">
+            {DOCUMENT_FIELDS.map(({ key, label }) => {
+                const url = provider[key];
 
-                <input
-                    id={key}
-                    type={type}
-                    value={form[key]}
-                    onChange={(event) =>
-                        updateForm(
-                            key,
-                            event.target.value
-                        )
-                    }
-                    disabled={saving}
-                    className={inputClass}
-                />
-            </div>
-        );
-    };
-
-    const renderFileInput = (
-        key: UploadKey,
-        label: string
-    ) => {
-        const existingFile =
-            selectedProvider?.[key] ?? null;
-
-        return (
-            <div>
-                <label
-                    htmlFor={`upload-${key}`}
-                    className="mb-1.5 block text-xs font-semibold text-slate-700"
-                >
-                    {label}
-                </label>
-
-                <label
-                    htmlFor={`upload-${key}`}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-[#CBD8E8] bg-[#FAFCFF] px-3 py-3 text-xs text-slate-600 hover:border-[#0866D8]"
-                >
-                    <Upload
-                        size={16}
-                        className="shrink-0 text-[#0866D8]"
-                    />
-
-                    <span className="min-w-0 flex-1 truncate">
-                        {files[key]?.name ||
-                            "Pilih file"}
-                    </span>
-                </label>
-
-                <input
-                    id={`upload-${key}`}
-                    type="file"
-                    accept={
-                        key === "logo_provider"
-                            ? ".jpg,.jpeg,.png,.webp"
-                            : ".pdf"
-                    }
-                    onChange={(event) =>
-                        handleFileChange(key, event)
-                    }
-                    disabled={saving}
-                    className="sr-only"
-                />
-
-                {existingFile && (
-                    <a
-                        href={existingFile}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#0866D8] hover:underline"
+                return (
+                    <div
+                        key={key}
+                        className="flex items-center gap-3 rounded-xl border border-[#DBE4F0] p-3"
                     >
-                        <ExternalLink size={13} />
-                        Lihat file saat ini
-                    </a>
-                )}
-            </div>
-        );
-    };
+                        <div className="rounded-lg bg-blue-50 p-2 text-[#0866D8]">
+                            <FileText size={18} />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-slate-900">
+                                {label}
+                            </p>
+
+                            <p className="mt-1 text-[11px] text-slate-500">
+                                {url ? "Tersedia" : "Belum tersedia"}
+                            </p>
+                        </div>
+
+                        {url && (
+                            <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={`Buka ${label}`}
+                                aria-label={`Buka ${label}`}
+                                className="rounded-lg p-2 text-[#0866D8] hover:bg-blue-50"
+                            >
+                                <ExternalLink size={16} />
+                            </a>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
 
     const modalErrorView = modalError ? (
         <div
             role="alert"
             className="mb-4 flex items-start gap-2 rounded-lg bg-red-50 p-3 text-xs text-red-700"
         >
-            <AlertCircle
-                size={16}
-                className="shrink-0"
-            />
-
+            <AlertCircle size={16} className="shrink-0" />
             <span>{modalError}</span>
         </div>
     ) : null;
 
     const renderModal = () => {
-        if (
-            modal === "detail" &&
-            displayedDetail
-        ) {
+        if (modal === "detail" && displayedDetail) {
             const provider = displayedDetail;
 
             return (
@@ -1510,6 +1056,16 @@ const Provider = () => {
                     {detailError && (
                         <div className="mb-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-700">
                             {detailError}
+                        </div>
+                    )}
+
+                    {detailLoading && (
+                        <div className="mb-4 flex items-center gap-2 text-xs text-slate-500">
+                            <LoaderCircle
+                                size={15}
+                                className="animate-spin"
+                            />
+                            Memuat detail provider...
                         </div>
                     )}
 
@@ -1551,7 +1107,7 @@ const Provider = () => {
                             </div>
                         </div>
 
-                        {/* INFORMASI */}
+                        {/* INFORMASI PROVIDER */}
                         <section className="border-t border-slate-100 pt-5">
                             <h4 className="mb-4 text-sm font-bold text-[#00357A]">
                                 Informasi Provider
@@ -1565,9 +1121,7 @@ const Provider = () => {
 
                                 <DetailField
                                     label="Nomor Telepon"
-                                    value={
-                                        provider.phone_number_provider
-                                    }
+                                    value={provider.phone_number_provider}
                                 />
 
                                 <DetailField
@@ -1591,9 +1145,7 @@ const Provider = () => {
 
                                 <DetailField
                                     label="Deskripsi"
-                                    value={
-                                        provider.description_provider
-                                    }
+                                    value={provider.description_provider}
                                 />
                             </div>
                         </section>
@@ -1635,315 +1187,62 @@ const Provider = () => {
                             </div>
                         </section>
 
-                        {/* LEGAL DOCUMENTS */}
+                        {/* DOKUMEN LEGALITAS */}
                         <section className="border-t border-slate-100 pt-5">
                             <h4 className="mb-4 flex items-center gap-2 text-sm font-bold text-[#00357A]">
                                 <FileText size={16} />
                                 Dokumen Legalitas
                             </h4>
 
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                {DOCUMENT_FIELDS.map((item) => {
-                                    const fileUrl = provider[item.key];
-
-                                    return (
-                                        <div
-                                            key={item.key}
-                                            className="flex items-center gap-3 rounded-xl border border-[#DBE4F0] p-3"
-                                        >
-                                            <div className="rounded-lg bg-blue-50 p-2 text-[#0866D8]">
-                                                <FileText size={18} />
-                                            </div>
-
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-xs font-semibold text-slate-900">
-                                                    {item.label}
-                                                </p>
-
-                                                <p className="mt-1 text-[11px] text-slate-500">
-                                                    {fileUrl
-                                                        ? "Tersedia"
-                                                        : "Belum tersedia"}
-                                                </p>
-                                            </div>
-
-                                            {fileUrl && (
-                                                <a
-                                                    href={fileUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    aria-label={`Buka ${item.label}`}
-                                                    title={`Buka ${item.label}`}
-                                                    className="rounded-lg p-2 text-[#0866D8] hover:bg-blue-50"
-                                                >
-                                                    <ExternalLink size={16} />
-                                                </a>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                            {renderDocuments(provider)}
                         </section>
                     </div>
 
-                    {/* DETAIL ACTIONS */}
+                    {/* AKSI DETAIL */}
                     <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-5">
-                        {isPendingStatus(
-                            provider.status_provider
-                        ) && (
-                                <>
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            openApproval(
-                                                provider,
-                                                "reject"
-                                            )
-                                        }
-                                        className="inline-flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100"
-                                    >
-                                        <ShieldX size={16} />
-                                        Tolak
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            openApproval(
-                                                provider,
-                                                "approve"
-                                            )
-                                        }
-                                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
-                                    >
-                                        <ShieldCheck size={16} />
-                                        Setujui
-                                    </button>
-                                </>
-                            )}
-
                         <button
                             type="button"
-                            onClick={() =>
-                                openEdit(provider)
-                            }
+                            onClick={closeModal}
                             className={secondaryButton}
                         >
-                            <Pencil size={16} />
-                            Edit
+                            Tutup
                         </button>
+
+                        {isPendingStatus(provider.status_provider) && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        openApproval(provider, "reject")
+                                    }
+                                    className={rejectButton}
+                                >
+                                    <ShieldX size={16} />
+                                    Tolak
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        openApproval(provider, "approve")
+                                    }
+                                    className={approveButton}
+                                >
+                                    <ShieldCheck size={16} />
+                                    Setujui
+                                </button>
+                            </>
+                        )}
                     </div>
                 </Modal>
             );
         }
 
         if (
-            modal === "edit" &&
+            (modal === "approve" || modal === "reject") &&
             selectedProvider
         ) {
-            return (
-                <Modal
-                    title="Edit Provider"
-                    wide
-                    onClose={closeModal}
-                    busy={saving}
-                >
-                    {modalErrorView}
-
-                    <form
-                        onSubmit={handleSaveProvider}
-                        className="space-y-6"
-                    >
-                        {/* INFORMASI UMUM */}
-                        <section>
-                            <h3 className="mb-4 text-sm font-bold text-[#00357A]">
-                                Informasi Provider
-                            </h3>
-
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                {renderInput(
-                                    "name_provider",
-                                    "Nama Provider"
-                                )}
-
-                                {renderInput(
-                                    "email_provider",
-                                    "Email",
-                                    "email"
-                                )}
-
-                                {renderInput(
-                                    "phone_number_provider",
-                                    "Nomor Telepon",
-                                    "tel"
-                                )}
-
-                                <div>
-                                    <label
-                                        htmlFor="id_provider_category"
-                                        className="mb-1.5 block text-xs font-semibold text-slate-700"
-                                    >
-                                        Kategori Provider
-                                    </label>
-
-                                    <select
-                                        id="id_provider_category"
-                                        value={form.id_provider_category}
-                                        onChange={(event) =>
-                                            updateForm(
-                                                "id_provider_category",
-                                                event.target.value
-                                            )
-                                        }
-                                        disabled={saving}
-                                        className={inputClass}
-                                    >
-                                        <option value="">
-                                            Pilih kategori
-                                        </option>
-
-                                        {categories.map((category) => (
-                                            <option
-                                                key={
-                                                    category.id_provider_category
-                                                }
-                                                value={
-                                                    category.id_provider_category
-                                                }
-                                            >
-                                                {
-                                                    category.name_provider_category
-                                                }
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="mt-4">
-                                <label
-                                    htmlFor="description_provider"
-                                    className="mb-1.5 block text-xs font-semibold text-slate-700"
-                                >
-                                    Deskripsi
-                                </label>
-
-                                <textarea
-                                    id="description_provider"
-                                    value={form.description_provider}
-                                    onChange={(event) =>
-                                        updateForm(
-                                            "description_provider",
-                                            event.target.value
-                                        )
-                                    }
-                                    rows={3}
-                                    disabled={saving}
-                                    className={inputClass}
-                                />
-                            </div>
-                        </section>
-
-                        {/* ALAMAT */}
-                        <section className="border-t border-slate-100 pt-5">
-                            <h3 className="mb-4 text-sm font-bold text-[#00357A]">
-                                Alamat Provider
-                            </h3>
-
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                {renderInput(
-                                    "province_provider",
-                                    "Provinsi"
-                                )}
-
-                                {renderInput(
-                                    "city_provider",
-                                    "Kota / Kabupaten"
-                                )}
-
-                                {renderInput(
-                                    "district_provider",
-                                    "Kecamatan"
-                                )}
-
-                                {renderInput(
-                                    "postal_code_provider",
-                                    "Kode Pos"
-                                )}
-                            </div>
-
-                            <div className="mt-4">
-                                {renderInput(
-                                    "address_provider",
-                                    "Alamat Lengkap"
-                                )}
-                            </div>
-                        </section>
-
-                        {/* DOCUMENTS */}
-                        <section className="border-t border-slate-100 pt-5">
-                            <h3 className="mb-4 text-sm font-bold text-[#00357A]">
-                                Logo & Dokumen
-                            </h3>
-
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                {renderFileInput(
-                                    "logo_provider",
-                                    "Logo Provider"
-                                )}
-
-                                {DOCUMENT_FIELDS.map((item) => (
-                                    <div key={item.key}>
-                                        {renderFileInput(
-                                            item.key,
-                                            item.label
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-
-                        {/* BUTTONS */}
-                        <div className="flex justify-end gap-2 border-t border-slate-100 pt-5">
-                            <button
-                                type="button"
-                                onClick={closeModal}
-                                disabled={saving}
-                                className={secondaryButton}
-                            >
-                                Batal
-                            </button>
-
-                            <button
-                                type="submit"
-                                disabled={saving}
-                                className={primaryButton}
-                            >
-                                {saving ? (
-                                    <>
-                                        <LoaderCircle
-                                            size={16}
-                                            className="animate-spin"
-                                        />
-                                        Menyimpan...
-                                    </>
-                                ) : (
-                                    "Simpan Perubahan"
-                                )}
-                            </button>
-                        </div>
-                    </form>
-                </Modal>
-            );
-        }
-
-        if (
-            (modal === "approve" ||
-                modal === "reject") &&
-            selectedProvider
-        ) {
-            const approving =
-                modal === "approve";
+            const approving = modal === "approve";
 
             return (
                 <Modal
@@ -1967,12 +1266,11 @@ const Provider = () => {
 
                             <button
                                 type="button"
-                                onClick={handleApproval}
+                                onClick={() => void handleApproval()}
                                 disabled={saving}
-                                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 ${approving
-                                    ? "bg-emerald-600 hover:bg-emerald-700"
-                                    : "bg-red-600 hover:bg-red-700"
-                                    }`}
+                                className={
+                                    approving ? approveButton : rejectButton
+                                }
                             >
                                 {saving && (
                                     <LoaderCircle
@@ -1981,24 +1279,29 @@ const Provider = () => {
                                     />
                                 )}
 
-                                {approving
-                                    ? "Setujui"
-                                    : "Tolak"}
+                                {saving
+                                    ? "Memproses..."
+                                    : approving
+                                        ? "Ya, Setujui"
+                                        : "Ya, Tolak"}
                             </button>
                         </>
                     }
                 >
                     {modalErrorView}
 
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm leading-relaxed text-slate-600">
                         Yakin ingin{" "}
-                        {approving
-                            ? "menyetujui"
-                            : "menolak"}{" "}
-                        <strong>
+                        {approving ? "menyetujui" : "menolak"} provider{" "}
+                        <strong className="text-slate-950">
                             {selectedProvider.name_provider}
                         </strong>
                         ?
+                    </p>
+
+                    <p className="mt-3 text-xs text-slate-500">
+                        Keputusan ini hanya dapat dilakukan untuk
+                        provider dengan status PENDING_APPROVAL.
                     </p>
                 </Modal>
             );
@@ -2021,11 +1324,10 @@ const Provider = () => {
                     </h1>
 
                     <p className="mt-2 text-sm text-[#526789]">
-                        Kelola data dan verifikasi provider.
+                        Lihat informasi, status, dan dokumen provider.
                     </p>
                 </div>
 
-                {/* ONLY REFRESH */}
                 <button
                     type="button"
                     onClick={refreshData}
@@ -2034,15 +1336,13 @@ const Provider = () => {
                 >
                     <RefreshCw
                         size={16}
-                        className={
-                            loading ? "animate-spin" : ""
-                        }
+                        className={loading ? "animate-spin" : ""}
                     />
                     Refresh
                 </button>
             </div>
 
-            {/* NOTIFICATION */}
+            {/* NOTIFIKASI */}
             {notification && (
                 <div
                     role="alert"
@@ -2063,9 +1363,7 @@ const Provider = () => {
 
                     <button
                         type="button"
-                        onClick={() =>
-                            setNotification(null)
-                        }
+                        onClick={() => setNotification(null)}
                         aria-label="Tutup notifikasi"
                         className="cursor-pointer"
                     >
@@ -2074,12 +1372,12 @@ const Provider = () => {
                 </div>
             )}
 
-            {/* SUMMARY */}
+            {/* RINGKASAN */}
             <div className="mb-5 grid grid-cols-2 gap-4 xl:grid-cols-4">
                 {[
                     {
                         label: "Total Provider",
-                        value: totalProviders,
+                        value: providers.length,
                         icon: <Building2 size={19} />,
                     },
                     {
@@ -2088,7 +1386,7 @@ const Provider = () => {
                         icon: <ShieldCheck size={19} />,
                     },
                     {
-                        label: "Pending",
+                        label: "Pending Approval",
                         value: pendingCount,
                         icon: <Clock3 size={19} />,
                     },
@@ -2111,17 +1409,14 @@ const Provider = () => {
                         </div>
 
                         <p className="text-3xl font-bold text-slate-950">
-                            {loading || listError
-                                ? "—"
-                                : stat.value}
+                            {loading || listError ? "—" : stat.value}
                         </p>
                     </div>
                 ))}
             </div>
 
-            {/* PROVIDER TABLE */}
+            {/* DAFTAR PROVIDER */}
             <section className="overflow-hidden rounded-2xl border border-[#DBE4F0] bg-white shadow-sm">
-                {/* TABLE HEADER */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5">
                     <div>
                         <h2 className="text-sm font-bold text-slate-950">
@@ -2154,7 +1449,7 @@ const Provider = () => {
                             />
                         </div>
 
-                        {/* STATUS FILTER */}
+                        {/* FILTER STATUS */}
                         <select
                             value={statusFilter}
                             onChange={(event) => {
@@ -2168,8 +1463,12 @@ const Provider = () => {
                                 Semua Status
                             </option>
 
-                            <option value="PENDING">
-                                Pending
+                            <option value="PENDING_OTP">
+                                Pending OTP
+                            </option>
+
+                            <option value="PENDING_APPROVAL">
+                                Pending Approval
                             </option>
 
                             <option value="APPROVED">
@@ -2183,11 +1482,12 @@ const Provider = () => {
                     </div>
                 </div>
 
-                {/* TABLE BODY */}
+                {/* TABEL */}
                 {loading ? (
                     <LoadingState />
                 ) : listError ? (
-                    <div className="p-5 text-sm text-red-600">
+                    <div className="flex items-center gap-2 p-5 text-sm text-red-600">
+                        <AlertCircle size={18} />
                         {listError}
                     </div>
                 ) : filteredProviders.length === 0 ? (
@@ -2224,153 +1524,129 @@ const Provider = () => {
                             </thead>
 
                             <tbody>
-                                {displayedProviders.map(
-                                    (provider, index) => (
-                                        <tr
-                                            key={provider.id_provider}
-                                            className="border-t border-slate-100 hover:bg-slate-50"
-                                        >
-                                            {/* NUMBER */}
-                                            <td className="px-5 py-4 text-slate-500">
-                                                {(currentPage - 1) *
-                                                    PAGE_SIZE +
-                                                    index +
-                                                    1}
-                                            </td>
+                                {displayedProviders.map((provider, index) => (
+                                    <tr
+                                        key={provider.id_provider}
+                                        className="border-t border-slate-100 hover:bg-slate-50"
+                                    >
+                                        {/* NO */}
+                                        <td className="px-5 py-4 text-slate-500">
+                                            {(currentPage - 1) * PAGE_SIZE +
+                                                index +
+                                                1}
+                                        </td>
 
-                                            {/* PROVIDER */}
-                                            <td className="px-5 py-4">
-                                                <div className="flex min-w-47.5 items-center gap-3">
-                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-blue-50 text-[#0866D8]">
-                                                        {provider.logo_provider ? (
-                                                            <img
-                                                                src={provider.logo_provider}
-                                                                alt=""
-                                                                className="h-full w-full object-contain"
-                                                            />
-                                                        ) : (
-                                                            <Hospital size={21} />
-                                                        )}
-                                                    </div>
-
-                                                    <div className="min-w-0">
-                                                        <p className="max-w-55 truncate font-semibold text-slate-950">
-                                                            {
-                                                                provider.name_provider
-                                                            }
-                                                        </p>
-
-                                                        <p className="mt-1 max-w-55 truncate text-xs text-slate-500">
-                                                            {provider.email_provider ||
-                                                                `ID: ${provider.id_provider}`}
-                                                        </p>
-                                                    </div>
+                                        {/* PROVIDER */}
+                                        <td className="px-5 py-4">
+                                            <div className="flex min-w-47 items-center gap-3">
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-blue-50 text-[#0866D8]">
+                                                    {provider.logo_provider ? (
+                                                        <img
+                                                            src={provider.logo_provider}
+                                                            alt=""
+                                                            className="h-full w-full object-contain"
+                                                        />
+                                                    ) : (
+                                                        <Hospital size={21} />
+                                                    )}
                                                 </div>
-                                            </td>
 
-                                            {/* LOCATION */}
-                                            <td className="px-5 py-4 text-slate-600">
-                                                <div className="flex items-center gap-1.5">
-                                                    <MapPin
-                                                        size={14}
-                                                        className="shrink-0 text-slate-400"
-                                                    />
+                                                <div className="min-w-0">
+                                                    <p className="max-w-55 truncate font-semibold text-slate-950">
+                                                        {provider.name_provider ||
+                                                            "Tanpa Nama"}
+                                                    </p>
 
-                                                    <span>
-                                                        {provider.city_provider ||
-                                                            "—"}
-                                                    </span>
+                                                    <p className="mt-1 max-w-55 truncate text-xs text-slate-500">
+                                                        {provider.email_provider ||
+                                                            `ID: ${provider.id_provider}`}
+                                                    </p>
                                                 </div>
-                                            </td>
+                                            </div>
+                                        </td>
 
-                                            {/* GROUP */}
-                                            <td className="px-5 py-4 text-slate-600">
-                                                {getGroupName(
-                                                    provider.id_provider_group
-                                                )}
-                                            </td>
-
-                                            {/* STATUS */}
-                                            <td className="px-5 py-4 text-center">
-                                                <StatusBadge
-                                                    status={
-                                                        provider.status_provider
-                                                    }
+                                        {/* LOKASI */}
+                                        <td className="px-5 py-4 text-slate-600">
+                                            <div className="flex items-center gap-1.5">
+                                                <MapPin
+                                                    size={14}
+                                                    className="shrink-0 text-slate-400"
                                                 />
-                                            </td>
 
-                                            {/* ACTIONS */}
-                                            <td className="px-5 py-4">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    {/* DETAIL */}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            openDetail(provider)
-                                                        }
-                                                        title="Detail Provider"
-                                                        aria-label={`Detail ${provider.name_provider}`}
-                                                        className="cursor-pointer flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-[#0866D8] hover:bg-blue-100"
-                                                    >
-                                                        <Eye size={18} />
-                                                    </button>
+                                                <span>
+                                                    {provider.city_provider || "—"}
+                                                </span>
+                                            </div>
+                                        </td>
 
-                                                    {/* EDIT */}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            openEdit(provider)
-                                                        }
-                                                        title="Edit Provider"
-                                                        aria-label={`Edit ${provider.name_provider}`}
-                                                        className="cursor-pointer flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
-                                                    >
-                                                        <Pencil size={18} />
-                                                    </button>
+                                        {/* GROUP */}
+                                        <td className="px-5 py-4 text-slate-600">
+                                            {getGroupName(
+                                                provider.id_provider_group
+                                            )}
+                                        </td>
 
-                                                    {/* APPROVE / REJECT */}
-                                                    {isPendingStatus(
-                                                        provider.status_provider
-                                                    ) && (
-                                                            <>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        openApproval(
-                                                                            provider,
-                                                                            "approve"
-                                                                        )
-                                                                    }
-                                                                    title="Setujui Provider"
-                                                                    aria-label={`Setujui ${provider.name_provider}`}
-                                                                    className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
-                                                                >
-                                                                    <ShieldCheck
-                                                                        size={18}
-                                                                    />
-                                                                </button>
+                                        {/* STATUS */}
+                                        <td className="px-5 py-4 text-center">
+                                            <StatusBadge
+                                                status={provider.status_provider}
+                                            />
+                                        </td>
 
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        openApproval(
-                                                                            provider,
-                                                                            "reject"
-                                                                        )
-                                                                    }
-                                                                    title="Tolak Provider"
-                                                                    aria-label={`Tolak ${provider.name_provider}`}
-                                                                    className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
-                                                                >
-                                                                    <ShieldX size={18} />
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )
-                                )}
+                                        {/* AKSI */}
+                                        <td className="px-5 py-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {/* DETAIL - SEMUA STATUS */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openDetail(provider)}
+                                                    title="Detail Provider"
+                                                    aria-label={`Detail ${provider.name_provider}`}
+                                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-blue-50 text-[#0866D8] hover:bg-blue-100"
+                                                >
+                                                    <Eye size={18} />
+                                                </button>
+
+                                                {/* APPROVE / REJECT */}
+                                                {isPendingStatus(
+                                                    provider.status_provider
+                                                ) && (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    openApproval(
+                                                                        provider,
+                                                                        "approve"
+                                                                    )
+                                                                }
+                                                                title="Setujui Provider"
+                                                                aria-label={`Setujui ${provider.name_provider}`}
+                                                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                                                            >
+                                                                <ShieldCheck size={18} />
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    openApproval(
+                                                                        provider,
+                                                                        "reject"
+                                                                    )
+                                                                }
+                                                                title="Tolak Provider"
+                                                                aria-label={`Tolak ${provider.name_provider}`}
+                                                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                                                            >
+                                                                <ShieldX size={18} />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
@@ -2383,10 +1659,7 @@ const Provider = () => {
                         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-4">
                             <p className="text-xs text-[#526789]">
                                 Menampilkan{" "}
-                                {(currentPage - 1) *
-                                    PAGE_SIZE +
-                                    1}
-                                –
+                                {(currentPage - 1) * PAGE_SIZE + 1}–
                                 {Math.min(
                                     currentPage * PAGE_SIZE,
                                     filteredProviders.length
@@ -2395,16 +1668,12 @@ const Provider = () => {
                             </p>
 
                             <div className="flex items-center gap-3">
-                                {/* PREVIOUS */}
                                 <button
                                     type="button"
                                     disabled={currentPage === 1}
                                     onClick={() =>
                                         setPage((current) =>
-                                            Math.max(
-                                                1,
-                                                current - 1
-                                            )
+                                            Math.max(1, current - 1)
                                         )
                                     }
                                     aria-label="Halaman sebelumnya"
@@ -2417,18 +1686,12 @@ const Provider = () => {
                                     {currentPage} / {totalPages}
                                 </span>
 
-                                {/* NEXT */}
                                 <button
                                     type="button"
-                                    disabled={
-                                        currentPage >= totalPages
-                                    }
+                                    disabled={currentPage >= totalPages}
                                     onClick={() =>
                                         setPage((current) =>
-                                            Math.min(
-                                                totalPages,
-                                                current + 1
-                                            )
+                                            Math.min(totalPages, current + 1)
                                         )
                                     }
                                     aria-label="Halaman berikutnya"
@@ -2441,7 +1704,7 @@ const Provider = () => {
                     )}
             </section>
 
-            {/* ALL ACTION MODALS */}
+            {/* MODAL DETAIL DAN PERSETUJUAN */}
             {renderModal()}
         </div>
     );

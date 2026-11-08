@@ -60,6 +60,7 @@ type ApiRecord = Record<string, unknown>;
 
 type ApprovalStatus =
     | "PENDING"
+    | "PENDING_OTP"
     | "APPROVED"
     | "REJECTED"
     | "UNKNOWN";
@@ -183,6 +184,7 @@ const getErrorMessage = (error: unknown): string =>
         ? error.message
         : "Terjadi kesalahan. Silakan coba kembali.";
 
+
 const normalizeApprovalStatus = (
     value: unknown
 ): ApprovalStatus => {
@@ -199,6 +201,10 @@ const normalizeApprovalStatus = (
         ].includes(status)
     ) {
         return "PENDING";
+    }
+
+    if (status === "PENDING_OTP") {
+        return "PENDING_OTP";
     }
 
     if (
@@ -577,13 +583,15 @@ const StatusBadge = ({
 }) => {
     const styles: Record<ApprovalStatus, string> = {
         PENDING: "bg-amber-50 text-amber-700",
+        PENDING_OTP: "bg-blue-50 text-blue-700",
         APPROVED: "bg-emerald-50 text-emerald-700",
         REJECTED: "bg-red-50 text-red-700",
         UNKNOWN: "bg-slate-100 text-slate-600",
     };
 
     const labels: Record<ApprovalStatus, string> = {
-        PENDING: "Pending",
+        PENDING: "Pending Approval",
+        PENDING_OTP: "Pending OTP",
         APPROVED: "Approved",
         REJECTED: "Rejected",
         UNKNOWN: "Unknown",
@@ -1644,6 +1652,7 @@ const ProviderApproval = () => {
                             className={filterClass}
                         >
                             <option value="PENDING">Pending</option>
+                            <option value="PENDING_OTP">Pending OTP</option>
                             <option value="ALL">Semua Status</option>
                             <option value="APPROVED">Approved</option>
                             <option value="REJECTED">Rejected</option>

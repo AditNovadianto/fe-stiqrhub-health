@@ -1017,10 +1017,12 @@ const Home = () => {
                                     formatCurrency(amount);
 
                                 const date =
+                                    order.booking_at ??
                                     order.created_at ??
                                     order.createdAt ??
-                                    order.booking_at ??
                                     order.paid_at;
+
+                                const formattedDate = formatDate(date);
 
                                 return (
                                     <div
@@ -1042,7 +1044,7 @@ const Home = () => {
                                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                                                 <CalendarDays size={12} />
 
-                                                {formatDate(date)}
+                                                {formattedDate}
                                             </div>
 
                                             {formattedAmount && (

@@ -142,7 +142,7 @@ const SignIn = () => {
                             className="mx-auto mb-5 h-20 w-20 object-contain"
                         />
 
-                        <h1 className="text-2xl font-semibold text-gray-900">
+                        <h1 className="text-2xl font-semibold text-[#00357A]">
                             Provider Sign In
                         </h1>
 
