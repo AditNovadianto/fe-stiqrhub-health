@@ -154,6 +154,8 @@ const Dashboard = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [providerUser, setProviderUser] =
         useState<ProviderUser | null>(null);
+    const [dashboardProviderName, setDashboardProviderName] =
+        useState<string>("");
     const [checkingAuth, setCheckingAuth] = useState(true);
     const [showLogoutModal, setShowLogoutModal] =
         useState(false);
@@ -172,6 +174,95 @@ const Dashboard = () => {
         setProviderUser(getProviderUser());
         setCheckingAuth(false);
     }, [navigate]);
+
+    useEffect(() => {
+        const rawProviderId =
+            providerUser?.id_provider ??
+            providerUser?.provider?.id_provider;
+
+        const providerId = Number(rawProviderId);
+
+        if (
+            !Number.isSafeInteger(providerId) ||
+            providerId <= 0
+        ) {
+            setDashboardProviderName("");
+            return;
+        }
+
+        const controller = new AbortController();
+
+        const fetchProviderName = async () => {
+            try {
+                const token = getProviderToken();
+
+                if (!token || isTokenExpired(token)) {
+                    return;
+                }
+
+                const apiUrl = (
+                    import.meta.env.VITE_API_URI || ""
+                ).replace(/\/$/, "");
+
+                const response = await fetch(
+                    `${apiUrl}/provider/${providerId}`,
+                    {
+                        method: "GET",
+                        headers: {
+                            Accept: "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                        signal: controller.signal,
+                        cache: "no-store",
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        `Gagal mengambil provider (HTTP ${response.status})`
+                    );
+                }
+
+                const result = await response.json();
+
+                if (result.success === false) {
+                    throw new Error(
+                        result.message || "Gagal mengambil provider"
+                    );
+                }
+
+                const provider =
+                    result.provider ??
+                    result.data?.provider ??
+                    result.data;
+
+                const name =
+                    typeof provider?.name_provider === "string"
+                        ? provider.name_provider.trim()
+                        : "";
+
+                if (!controller.signal.aborted) {
+                    setDashboardProviderName(name);
+                }
+            } catch (error) {
+                if (!controller.signal.aborted) {
+                    console.error(
+                        "Gagal mengambil nama provider:",
+                        error
+                    );
+
+                    setDashboardProviderName("");
+                }
+            }
+        };
+
+        void fetchProviderName();
+
+        return () => controller.abort();
+    }, [
+        providerUser?.id_provider,
+        providerUser?.provider?.id_provider,
+    ]);
 
     // Close sidebar on navigation
     useEffect(() => {
@@ -235,9 +326,10 @@ const Dashboard = () => {
     };
 
     const providerName =
-        providerUser?.name_provider ||
-        providerUser?.provider?.name_provider ||
-        "Provider STIQR Health";
+        dashboardProviderName ||
+        providerUser?.name_provider?.trim() ||
+        providerUser?.provider?.name_provider?.trim() ||
+        "Memuat nama provider...";
 
     const userName =
         providerUser?.name_provider_user ||

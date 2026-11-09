@@ -352,9 +352,7 @@ const Home = () => {
     const navigate = useNavigate();
 
     const {
-        providerUser,
-        providerName,
-        userName,
+        providerUser
     } = useOutletContext<ProviderContext>();
 
     const contextProviderId = Number(
@@ -374,11 +372,79 @@ const Home = () => {
     });
 
     const [loading, setLoading] = useState(true);
+    const [dashboardProviderName, setDashboardProviderName] = useState<string>("");
     const [errorMessage, setErrorMessage] = useState("");
     const [sectionErrors, setSectionErrors] =
         useState<string[]>([]);
     const [refreshKey, setRefreshKey] = useState(0);
     const [now, setNow] = useState(() => Date.now());
+
+    useEffect(() => {
+        if (!providerId) {
+            setDashboardProviderName("");
+            return;
+        }
+
+        const controller = new AbortController();
+
+        const fetchProviderName = async () => {
+            try {
+                const token = getProviderToken();
+
+                if (!token || isTokenExpired(token)) {
+                    return;
+                }
+
+                const response = await fetch(
+                    `${import.meta.env.VITE_API_URI}/provider/${providerId}`,
+                    {
+                        method: "GET",
+                        headers: {
+                            Accept: "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                        signal: controller.signal,
+                        cache: "no-store",
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        `Gagal mengambil nama provider (HTTP ${response.status})`
+                    );
+                }
+
+                const result = await response.json();
+
+                const provider =
+                    result.provider ??
+                    result.data?.provider ??
+                    result.data;
+
+                const name =
+                    typeof provider?.name_provider === "string"
+                        ? provider.name_provider.trim()
+                        : "";
+
+                if (!controller.signal.aborted) {
+                    setDashboardProviderName(name);
+                }
+            } catch (error) {
+                if (!controller.signal.aborted) {
+                    console.error(
+                        "Gagal mengambil nama provider:",
+                        error
+                    );
+
+                    setDashboardProviderName("");
+                }
+            }
+        };
+
+        void fetchProviderName();
+
+        return () => controller.abort();
+    }, [providerId]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -711,12 +777,8 @@ const Home = () => {
                         </p>
 
                         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 lg:text-3xl">
-                            Selamat datang, {userName}
+                            Selamat datang, {dashboardProviderName || "Memuat nama provider..."}
                         </h1>
-
-                        <p className="mt-2 text-sm text-slate-500">
-                            {providerName}
-                        </p>
 
                         <p className="mt-1 text-xs text-slate-400">
                             Ringkasan aktivitas layanan dan transaksi provider.

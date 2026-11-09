@@ -55,6 +55,20 @@ interface ServiceData {
     image_service: string | null;
 }
 
+interface DetailServiceForm {
+    benefits: string;
+    included_services: string;
+    location: string;
+    hour: string;
+    terms_and_conditions: string;
+}
+
+interface DetailServiceData extends DetailServiceForm {
+    id_detail_service: number;
+    id_service: number;
+    id_provider: number | null;
+}
+
 interface ProviderData {
     id_provider: number;
     name_provider: string;
@@ -110,6 +124,14 @@ const emptyForm = (): ServiceForm => ({
     maps_service: "",
     quota_service: "",
     id_provider: "",
+});
+
+const emptyDetailForm = (): DetailServiceForm => ({
+    benefits: "",
+    included_services: "",
+    location: "",
+    hour: "",
+    terms_and_conditions: "",
 });
 
 const isRecord = (
@@ -671,6 +693,104 @@ const updateService = (
 // DELETE /service/:id membutuhkan
 // id_provider di request body.
 
+// Detail service disimpan melalui endpoint berbeda dari layanan utama.
+const getDetailService = async (
+    serviceId: number,
+    signal?: AbortSignal
+): Promise<DetailServiceData | null> => {
+    let response: unknown;
+
+    try {
+        response = await apiRequest(
+            `/detail-service/service/${serviceId}`,
+            { signal }
+        );
+    } catch (error) {
+        const message = getErrorMessage(error);
+        if (/HTTP 404|not found|tidak ditemukan/i.test(message)) {
+            return null;
+        }
+        throw error;
+    }
+
+    const search = (value: unknown, depth = 0): ApiRecord[] => {
+        if (depth > 6) return [];
+        if (Array.isArray(value)) {
+            return value.flatMap((item) => search(item, depth + 1));
+        }
+        if (!isRecord(value)) return [];
+        if (idValue(value.id_detail_service)) return [value];
+        return ["data", "detail_service", "detailService", "details", "results", "items"]
+            .flatMap((key) => search(value[key], depth + 1));
+    };
+
+    const row = search(response).find(
+        (item) => idValue(item.id_service) === serviceId
+    );
+
+    if (!row) return null;
+
+    return {
+        id_detail_service: idValue(row.id_detail_service)!,
+        id_service: serviceId,
+        id_provider: idValue(row.id_provider),
+        benefits: textValue(row.benefits),
+        included_services: textValue(row.included_services),
+        location: textValue(row.location),
+        hour: textValue(row.hour),
+        terms_and_conditions: textValue(row.terms_and_conditions),
+    };
+};
+
+// Values are stored as comma-separated strings for the existing detail_service schema.
+const serializeItems = (items: string[]): string =>
+    items.map((item) => item.trim()).filter(Boolean).join(", ");
+
+const parseItems = (value: string): string[] => {
+    const items = value.split(/[,\r\n]+/).map((item) => item.trim()).filter(Boolean);
+    return items.length ? items : [""];
+};
+
+const parseHours = (value: string): { start: string; end: string } => {
+    const match = value.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/);
+    return { start: match?.[1] ?? "", end: match?.[2] ?? "" };
+};
+
+const saveDetailService = (
+    form: DetailServiceForm,
+    serviceId: number,
+    providerId: number,
+    existingDetailId: number | null
+) => apiRequest(
+    existingDetailId
+        ? `/detail-service/${existingDetailId}`
+        : "/detail-service/create",
+    {
+        method: existingDetailId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            ...form,
+            id_service: serviceId,
+            id_provider: providerId,
+        }),
+    }
+);
+
+// Cari ID service yang baru dibuat pada berbagai bentuk response API.
+const createdServiceIdFromResponse = (response: unknown): number | null => {
+    const find = (value: unknown, depth = 0): number | null => {
+        if (depth > 6 || !isRecord(value)) return null;
+        const found = idValue(value.id_service);
+        if (found) return found;
+        for (const key of ["data", "service", "result"]) {
+            const nested = find(value[key], depth + 1);
+            if (nested) return nested;
+        }
+        return null;
+    };
+    return find(response);
+};
+
 const deleteService = (
     serviceId: number,
     providerId: number
@@ -913,6 +1033,85 @@ const ServiceCatalog = () => {
     ] = useState<ServiceForm>(
         emptyForm()
     );
+
+    const [detailForm, setDetailForm] = useState<DetailServiceForm>(
+        emptyDetailForm()
+    );
+    type RepeatableKey = "benefits" | "included_services" | "terms_and_conditions";
+    type RepeatableFields = Record<RepeatableKey, string[]>;
+
+    const blankItems = (): RepeatableFields => ({
+        benefits: [""], included_services: [""], terms_and_conditions: [""],
+    });
+
+    const [detailItems, setDetailItems] = useState<RepeatableFields>(blankItems);
+    const [startHour, setStartHour] = useState("");
+    const [endHour, setEndHour] = useState("");
+
+    const changeItem = (key: RepeatableKey, index: number, value: string) => {
+        setDetailItems((current) => ({
+            ...current,
+            [key]: current[key].map((item, i) => i === index ? value : item),
+        }));
+    };
+    const addItem = (key: RepeatableKey) => {
+        setDetailItems((current) => ({ ...current, [key]: [...current[key], ""] }));
+    };
+    const removeItem = (key: RepeatableKey, index: number) => {
+        setDetailItems((current) => ({
+            ...current,
+            [key]: current[key].length === 1
+                ? [""]
+                : current[key].filter((_, i) => i !== index),
+        }));
+    };
+
+    const renderRepeatable = (key: RepeatableKey, label: string) => (
+        <div className="sm:col-span-2">
+            <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                {label} <span className="text-red-500">*</span>
+            </label>
+            <div className="space-y-2">
+                {detailItems[key].map((item, index) => (
+                    <div key={`${key}-${index}`} className="flex items-center gap-2">
+                        <input
+                            type="text"
+                            value={item}
+                            placeholder={`${label} ${index + 1}`}
+                            onChange={(event) => changeItem(key, index, event.target.value)}
+                            disabled={saving}
+                            required
+                            className={inputClass}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => removeItem(key, index)}
+                            disabled={saving}
+                            title="Hapus item"
+                            aria-label={`Hapus ${label} ${index + 1}`}
+                            className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
+                ))}
+            </div>
+            <button
+                type="button"
+                onClick={() => addItem(key)}
+                disabled={saving}
+                className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#DBE4F0] bg-white px-3 py-2 text-xs font-semibold text-[#0866D8] hover:bg-blue-50 disabled:opacity-50"
+            >
+                <Plus size={15} /> Tambah {label}
+            </button>
+        </div>
+    );
+
+    const [detailServiceId, setDetailServiceId] = useState<number | null>(null);
+    const [detailFormLoading, setDetailFormLoading] = useState(false);
+    const [detailFormError, setDetailFormError] = useState("");
+    // Jika service utama sudah berhasil dibuat, retry hanya untuk detail.
+    const [pendingCreatedServiceId, setPendingCreatedServiceId] = useState<number | null>(null);
 
     const [
         imageFile,
@@ -1401,6 +1600,51 @@ const ServiceCatalog = () => {
         handleApiError,
     ]);
 
+    // Memuat detail_service pada modal Detail dan Edit.
+    useEffect(() => {
+        if ((modal !== "detail" && modal !== "edit") || selectedId === null) {
+            return;
+        }
+
+        const controller = new AbortController();
+        setDetailFormLoading(true);
+        setDetailFormError("");
+        setDetailServiceId(null);
+        setDetailForm(emptyDetailForm());
+
+        getDetailService(selectedId, controller.signal)
+            .then((record) => {
+                if (controller.signal.aborted) return;
+                setDetailServiceId(record?.id_detail_service ?? null);
+                setDetailItems(record ? {
+                    benefits: parseItems(record.benefits),
+                    included_services: parseItems(record.included_services),
+                    terms_and_conditions: parseItems(record.terms_and_conditions),
+                } : blankItems());
+                const operatingHours = parseHours(record?.hour ?? "");
+                setStartHour(operatingHours.start);
+                setEndHour(operatingHours.end);
+                setDetailForm(record ? {
+                    benefits: record.benefits,
+                    included_services: record.included_services,
+                    location: record.location,
+                    hour: record.hour,
+                    terms_and_conditions: record.terms_and_conditions,
+                } : emptyDetailForm());
+            })
+            .catch((error) => {
+                if (controller.signal.aborted) return;
+                if (!handleApiError(error)) {
+                    setDetailFormError(getErrorMessage(error));
+                }
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setDetailFormLoading(false);
+            });
+
+        return () => controller.abort();
+    }, [modal, selectedId, handleApiError]);
+
     const closeModal = useCallback(
         () => {
             if (saving) return;
@@ -1413,6 +1657,13 @@ const ServiceCatalog = () => {
             setImageFile(null);
             setModalError("");
             setDetailError("");
+            setDetailForm(emptyDetailForm());
+            setDetailItems(blankItems());
+            setStartHour("");
+            setEndHour("");
+            setDetailServiceId(null);
+            setDetailFormError("");
+            setPendingCreatedServiceId(null);
         },
         [saving]
     );
@@ -1424,6 +1675,13 @@ const ServiceCatalog = () => {
         setForm(emptyForm());
         setImageFile(null);
         setModalError("");
+        setDetailForm(emptyDetailForm());
+        setDetailItems(blankItems());
+        setStartHour("");
+        setEndHour("");
+        setDetailServiceId(null);
+        setDetailFormError("");
+        setPendingCreatedServiceId(null);
         setModal("create");
     };
 
@@ -1634,10 +1892,14 @@ const ServiceCatalog = () => {
         ) => {
             event.preventDefault();
 
-            if (saving) return;
+            if (saving || detailFormLoading) return;
 
+            if (detailFormError) {
+                setModalError("Gagal memuat detail layanan. Tutup lalu buka kembali modal Edit.");
+                return;
+            }
 
-            if (modal === "create" && !imageFile) {
+            if (modal === "create" && !imageFile && !pendingCreatedServiceId) {
                 setModalError("Gambar Layanan wajib diunggah.");
                 return;
             }
@@ -1703,31 +1965,82 @@ const ServiceCatalog = () => {
                 return;
             }
 
+            const detailToSave: DetailServiceForm = {
+                ...detailForm,
+                benefits: serializeItems(detailItems.benefits),
+                included_services: serializeItems(detailItems.included_services),
+                terms_and_conditions: serializeItems(detailItems.terms_and_conditions),
+                hour: `${startHour} - ${endHour}`,
+            };
+
+            if (Object.values(detailItems).some((items) =>
+                items.length === 0 || items.some((item) => !item.trim())
+            )) {
+                setModalError("Isi semua item manfaat, termasuk layanan, dan syarat ketentuan.");
+                return;
+            }
+
+            if (!detailForm.location.trim() || !startHour || !endHour) {
+                setModalError("Lokasi, jam mulai, dan jam selesai wajib diisi.");
+                return;
+            }
+
+            // Pastikan format operasi dalam satu hari valid.
+            if (startHour >= endHour) {
+                setModalError("Jam selesai harus lebih besar dari jam mulai.");
+                return;
+            }
+
             setSaving(true);
             setModalError("");
+            let mainServiceSaved = false;
 
             try {
                 const action = modal;
+                const providerId = Number(form.id_provider);
+                let serviceId: number | null = pendingCreatedServiceId;
 
-                if (
-                    action === "create"
-                ) {
-                    await createService(
-                        form,
-                        imageFile
-                    );
-                } else if (
-                    action === "edit" &&
-                    selectedId !== null
-                ) {
-                    await updateService(
-                        selectedId,
-                        form,
-                        imageFile
-                    );
-                } else {
-                    return;
+                if (action === "create" && serviceId === null) {
+                    // POST /service/create memakai multipart/form-data.
+                    const beforeIds = new Set(services.map((item) => item.id_service));
+                    const created = await createService(form, imageFile);
+                    mainServiceSaved = true;
+                    serviceId = createdServiceIdFromResponse(created);
+
+                    // Jika API create tidak menyertakan ID, cocokkan dengan daftar terbaru.
+                    if (!serviceId) {
+                        const latest = await getAllServices();
+                        const candidates = latest.filter((item) =>
+                            !beforeIds.has(item.id_service) &&
+                            item.id_provider === providerId &&
+                            item.name_service === form.name_service.trim()
+                        );
+                        if (candidates.length === 1) {
+                            serviceId = candidates[0].id_service;
+                        }
+                    }
+
+                    if (!serviceId) {
+                        throw new Error("Service utama berhasil dibuat tetapi id_service tidak dapat dipastikan. Refresh daftar lalu lengkapi detail melalui Edit, jangan tekan Tambah lagi.");
+                    }
+                    setPendingCreatedServiceId(serviceId);
+                } else if (action === "edit" && selectedId !== null) {
+                    await updateService(selectedId, form, imageFile);
+                    mainServiceSaved = true;
+                    serviceId = selectedId;
                 }
+
+                if (!serviceId) {
+                    throw new Error("ID layanan tidak tersedia.");
+                }
+
+                // POST /detail-service/create atau PATCH /detail-service/:id
+                await saveDetailService(
+                    detailToSave,
+                    serviceId,
+                    providerId,
+                    action === "edit" ? detailServiceId : null
+                );
 
                 const latest =
                     await getAllServices();
@@ -1739,6 +2052,7 @@ const ServiceCatalog = () => {
                 setSelectedSnapshot(null);
                 setDetail(null);
                 setImageFile(null);
+                setPendingCreatedServiceId(null);
 
                 showNotice(
                     "success",
@@ -1751,7 +2065,10 @@ const ServiceCatalog = () => {
                     !handleApiError(error)
                 ) {
                     setModalError(
-                        getErrorMessage(error)
+                        getErrorMessage(error) +
+                        (mainServiceSaved
+                            ? " Data utama layanan sudah tersimpan, tetapi detail mungkin belum berhasil disimpan. Jangan buat service duplikat."
+                            : "")
                     );
                 }
             } finally {
@@ -1985,6 +2302,35 @@ const ServiceCatalog = () => {
                                 </p>
                             )}
                         </section>
+
+                        {/* INFORMASI DETAIL SERVICE - untuk FE User */}
+                        <section className="border-t border-slate-100 pt-5">
+                            <h4 className="mb-4 text-sm font-bold text-[#00357A]">
+                                Detail Layanan untuk User
+                            </h4>
+
+                            {detailFormLoading ? (
+                                <LoadingState text="Memuat detail layanan..." />
+                            ) : detailFormError ? (
+                                <p className="text-sm text-red-600">{detailFormError}</p>
+                            ) : detailServiceId === null ? (
+                                <p className="text-sm text-slate-500">Belum ada detail layanan. Klik Edit Layanan untuk menambahkannya.</p>
+                            ) : (
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <div className="sm:col-span-2">
+                                        <InfoField label="Manfaat Layanan" value={detailForm.benefits} />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <InfoField label="Termasuk dalam Layanan" value={detailForm.included_services} />
+                                    </div>
+                                    <InfoField label="Lokasi Layanan" value={detailForm.location} />
+                                    <InfoField label="Jam Operasional" value={detailForm.hour} />
+                                    <div className="sm:col-span-2">
+                                        <InfoField label="Syarat dan Ketentuan" value={detailForm.terms_and_conditions} />
+                                    </div>
+                                </div>
+                            )}
+                        </section>
                     </div>
 
                     {/* DETAIL ACTIONS */}
@@ -2048,6 +2394,11 @@ const ServiceCatalog = () => {
                     busy={saving}
                 >
                     {renderError()}
+                    {pendingCreatedServiceId && modal === "create" && (
+                        <p className="mb-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
+                            Service utama ID #{pendingCreatedServiceId} sudah tersimpan. Simpan detail untuk menyelesaikan proses. Jika ditutup, lanjutkan dari menu Edit.
+                        </p>
+                    )}
 
                     <form
                         onSubmit={
@@ -2244,6 +2595,72 @@ const ServiceCatalog = () => {
                             </div>
                         </section>
 
+                        {/* DETAIL SERVICE - data yang tampil di FE User */}
+                        <section className="border-t border-slate-100 pt-5">
+                            <h3 className="mb-2 text-sm font-bold text-[#00357A]">
+                                Detail Layanan untuk User
+                            </h3>
+                            <p className="mb-4 text-xs text-slate-500">
+                                Informasi ini disimpan ke detail_service dan akan digunakan di frontend user.
+                            </p>
+                            {detailFormLoading ? (
+                                <LoadingState text="Memuat detail layanan..." />
+                            ) : detailFormError ? (
+                                <p className="text-sm text-red-600">{detailFormError}</p>
+                            ) : (
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    {renderRepeatable("benefits", "Manfaat Layanan")}
+                                    {renderRepeatable("included_services", "Termasuk dalam Layanan")}
+                                    <div className="sm:col-span-2">
+                                        <label htmlFor="detail-location" className="mb-1.5 block text-xs font-semibold text-slate-700">
+                                            Lokasi Layanan <span className="text-red-500">*</span>
+                                        </label>
+                                        <textarea
+                                            id="detail-location"
+                                            rows={2}
+                                            value={detailForm.location}
+                                            onChange={(e) => setDetailForm((old) => ({ ...old, location: e.target.value }))}
+                                            disabled={saving}
+                                            required
+                                            className={inputClass}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="detail-start-hour" className="mb-1.5 block text-xs font-semibold text-slate-700">
+                                            Jam Mulai <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            id="detail-start-hour"
+                                            type="time"
+                                            value={startHour}
+                                            onChange={(e) => setStartHour(e.target.value)}
+                                            disabled={saving}
+                                            required
+                                            className={inputClass}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="detail-end-hour" className="mb-1.5 block text-xs font-semibold text-slate-700">
+                                            Jam Selesai <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            id="detail-end-hour"
+                                            type="time"
+                                            value={endHour}
+                                            onChange={(e) => setEndHour(e.target.value)}
+                                            disabled={saving}
+                                            required
+                                            className={inputClass}
+                                        />
+                                    </div>
+                                    {renderRepeatable("terms_and_conditions", "Syarat dan Ketentuan")}
+                                    <p className="sm:col-span-2 text-xs text-slate-500">
+                                        Setiap item akan disimpan terpisah dengan koma. Jam operasional disimpan sebagai HH:mm - HH:mm.
+                                    </p>
+                                </div>
+                            )}
+                        </section>
+
                         {/* SERVICE IMAGE */}
                         <section className="border-t border-slate-100 pt-5">
                             <h3 className="mb-4 text-sm font-bold text-[#00357A]">
@@ -2316,12 +2733,8 @@ const ServiceCatalog = () => {
 
                             <button
                                 type="submit"
-                                disabled={
-                                    saving
-                                }
-                                className={
-                                    primaryButton
-                                }
+                                disabled={saving || detailFormLoading || !!detailFormError}
+                                className={primaryButton}
                             >
                                 {saving ? (
                                     <>
