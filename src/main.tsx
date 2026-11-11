@@ -50,6 +50,7 @@ import InternalAccount from './components/users/InternalAccount.tsx'
 import ResetPasswordUser from './pages/users/ResetPassword.tsx'
 import UserRole from './components/users/UserRole.tsx'
 import ProviderRole from './components/users/ProviderRole.tsx'
+import HealthPass from './components/users/HealthPass.tsx'
 
 const router = createBrowserRouter([
   {
@@ -225,6 +226,10 @@ const router = createBrowserRouter([
           {
             path: "orders",
             element: <Order />,
+          },
+          {
+            path: "health-pass",
+            element: <HealthPass />,
           },
           {
             path: "provider-users",

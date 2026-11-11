@@ -33,6 +33,12 @@ import {
     Mail,
     Phone,
     Hash,
+    ClipboardCheck,
+    FileText,
+    KeyRound,
+    Send,
+    RotateCw,
+    LockKeyhole,
 } from "lucide-react";
 
 import { isTokenExpired } from "../../utils/auth";
@@ -66,6 +72,10 @@ interface HealthPass {
     redeemed_at: string | null;
     redeemed_by: string | number | null;
 
+    finished_at?: string | null;
+    finished_by?: string | number | null;
+    doctor_notes?: string | null;
+
     id_order: string;
     id_customer: number | null;
     id_guest?: number | null;
@@ -75,15 +85,11 @@ interface HealthPass {
     payment_status: string;
     order_status: string;
 
-    // Recipient: CUSTOMER or GUEST
     recipient_type?: "CUSTOMER" | "GUEST" | "UNKNOWN";
 
-    // These fields contain the recipient's information.
     name_customer?: string | null;
     email_customer?: string | null;
     phone_number_customer?: string | null;
-
-    // DOB is only available for CUSTOMER.
     dob_customer?: string | null;
 
     name_service?: string;
@@ -99,9 +105,26 @@ interface ApiResponse {
     data: HealthPass[];
 }
 
+interface FinishOtpResponse {
+    success: boolean;
+    message?: string;
+    data?: {
+        otp_token: string;
+        expires_in_seconds: number;
+        recipient_email_masked: string;
+    };
+}
+
+interface FinishResponse {
+    success: boolean;
+    message?: string;
+    data?: Partial<HealthPass>;
+}
+
 type StatusFilter =
     | "ALL"
     | "REDEEMED"
+    | "FINISHED"
     | "ACTIVE"
     | "EXPIRED"
     | "OTHER";
@@ -114,16 +137,13 @@ type DateFilter =
 
 type DisplayStatus =
     | "REDEEMED"
+    | "FINISHED"
     | "ACTIVE"
     | "UPCOMING"
     | "EXPIRED"
     | "OTHER";
 
 const PAGE_SIZE = 10;
-
-const API_BASE_URL = String(
-    import.meta.env.VITE_API_URI || ""
-).replace(/\/+$/, "");
 
 const getProviderToken = (): string | null =>
     sessionStorage.getItem("provider_token") ||
@@ -227,8 +247,6 @@ const formatDateOfBirth = (
 ): string => {
     if (!value) return "-";
 
-    // Ambil date-only agar tanggal lahir
-    // tidak berubah akibat konversi timezone.
     const dateOnly = value.slice(0, 10);
 
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(
@@ -287,17 +305,11 @@ const getDisplayStatus = (
         pass.status_health_pass
     );
 
-    if (status === "REDEEMED" || pass.redeemed_at) {
-        return "REDEEMED";
-    }
+    if (status === "FINISHED") return "FINISHED";
+    if (status === "REDEEMED") return "REDEEMED";
 
-    if (status === "EXPIRED") {
-        return "EXPIRED";
-    }
-
-    if (status !== "ACTIVE") {
-        return "OTHER";
-    }
+    if (status === "EXPIRED") return "EXPIRED";
+    if (status !== "ACTIVE") return "OTHER";
 
     const from = toTimestamp(pass.valid_from);
     const until = toTimestamp(pass.valid_until);
@@ -318,9 +330,16 @@ const getDisplayStatus = (
 
 const getStatusInfo = (status: DisplayStatus) => {
     switch (status) {
+        case "FINISHED":
+            return {
+                label: "Selesai Treatment",
+                className:
+                    "border-emerald-200 bg-emerald-50 text-emerald-700",
+            };
+
         case "REDEEMED":
             return {
-                label: "Sudah Digunakan",
+                label: "Dalam Pelayanan",
                 className:
                     "border-blue-200 bg-blue-50 text-blue-700",
             };
@@ -354,6 +373,21 @@ const getStatusInfo = (status: DisplayStatus) => {
             };
     }
 };
+
+async function readApiResponse<T>(
+    response: Response
+): Promise<T> {
+    const contentType =
+        response.headers.get("content-type") || "";
+
+    if (!contentType.includes("application/json")) {
+        throw new Error(
+            `Response server tidak valid (${response.status}).`
+        );
+    }
+
+    return (await response.json()) as T;
+}
 
 const StatusBadge = ({
     status,
@@ -468,12 +502,13 @@ const Redemptions = () => {
             : getStoredProviderId();
 
     const [passes, setPasses] = useState<HealthPass[]>([]);
-    const [providerUsers, setProviderUsers] = useState<ProviderUserLookup[]>([]);
+    const [providerUsers, setProviderUsers] =
+        useState<ProviderUserLookup[]>([]);
+
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
 
-    const [searchKeyword, setSearchKeyword] =
-        useState("");
+    const [searchKeyword, setSearchKeyword] = useState("");
 
     const [statusFilter, setStatusFilter] =
         useState<StatusFilter>("REDEEMED");
@@ -487,6 +522,42 @@ const Redemptions = () => {
 
     const [selectedPassId, setSelectedPassId] =
         useState<string | null>(null);
+
+    const [finishPassId, setFinishPassId] =
+        useState<string | null>(null);
+
+    const [doctorNotes, setDoctorNotes] = useState("");
+
+    const [finishing, setFinishing] = useState(false);
+    const [finishError, setFinishError] = useState("");
+    const [finishSuccess, setFinishSuccess] = useState("");
+
+    const [otpToken, setOtpToken] = useState("");
+    const [otpCode, setOtpCode] = useState("");
+
+    const [otpSending, setOtpSending] = useState(false);
+    const [otpSent, setOtpSent] = useState(false);
+
+    const [otpRecipient, setOtpRecipient] = useState("");
+
+    const [otpExpiresAt, setOtpExpiresAt] = useState<
+        number | null
+    >(null);
+
+    // Countdown dikendalikan oleh state `now` yang
+    // diperbarui setiap detik ketika modal terbuka.
+    const otpSecondsLeft = otpExpiresAt
+        ? Math.max(0, Math.ceil((otpExpiresAt - now) / 1000))
+        : 0;
+
+    const otpExpired =
+        otpSent && otpSecondsLeft <= 0;
+
+    const otpValid =
+        /^\d{6}$/.test(otpCode) &&
+        Boolean(otpToken) &&
+        otpSent &&
+        !otpExpired;
 
     const redirectToLogin = useCallback(() => {
         clearProviderSession();
@@ -521,7 +592,7 @@ const Redemptions = () => {
 
             try {
                 const response = await fetch(
-                    `${API_BASE_URL}/health-passes/provider`,
+                    `${import.meta.env.VITE_API_URI}/health-passes/provider`,
                     {
                         method: "GET",
                         headers: {
@@ -541,7 +612,7 @@ const Redemptions = () => {
                 }
 
                 const result =
-                    (await response.json()) as ApiResponse;
+                    await readApiResponse<ApiResponse>(response);
 
                 if (!response.ok || !result.success) {
                     throw new Error(
@@ -558,8 +629,6 @@ const Redemptions = () => {
 
                 if (controller.signal.aborted) return;
 
-                // Endpoint wajib melakukan provider scoping.
-                // Filter tambahan hanya untuk data dengan id_provider.
                 const providerPasses = result.data.filter(
                     (pass) =>
                         pass.id_provider == null ||
@@ -607,7 +676,7 @@ const Redemptions = () => {
                 }
 
                 const response = await fetch(
-                    `${API_BASE_URL}/provider-user/provider/${providerId}`,
+                    `${import.meta.env.VITE_API_URI}/provider-user/provider/${providerId}`,
                     {
                         method: "GET",
                         headers: {
@@ -643,12 +712,9 @@ const Redemptions = () => {
                         }))
                         .filter(
                             (user: ProviderUserLookup) =>
-                                Number.isSafeInteger(
-                                    user.id_provider_user
-                                ) &&
+                                Number.isSafeInteger(user.id_provider_user) &&
                                 user.id_provider_user > 0 &&
-                                typeof user.name_provider_user ===
-                                "string"
+                                typeof user.name_provider_user === "string"
                         );
 
                 if (!controller.signal.aborted) {
@@ -671,7 +737,9 @@ const Redemptions = () => {
     }, [providerId, refreshKey]);
 
     const getRedeemedByName = useCallback(
-        (redeemedBy: string | number | null): string => {
+        (
+            redeemedBy: string | number | null
+        ): string => {
             if (
                 redeemedBy === null ||
                 redeemedBy === undefined ||
@@ -695,23 +763,24 @@ const Redemptions = () => {
     );
 
     useEffect(() => {
+        // Perbarui countdown OTP setiap detik ketika modal aktif.
         const interval = window.setInterval(
             () => setNow(Date.now()),
-            60_000
+            finishPassId ? 1000 : 60_000
         );
 
         return () => window.clearInterval(interval);
-    }, []);
+    }, [finishPassId]);
 
     const summary = useMemo(() => {
-        const redeemed = passes.filter(
-            (pass) =>
-                getDisplayStatus(pass, now) === "REDEEMED"
+        const redeemed = passes.filter((pass) =>
+            ["REDEEMED", "FINISHED"].includes(
+                normalizeStatus(pass.status_health_pass)
+            )
         );
 
         const active = passes.filter(
-            (pass) =>
-                getDisplayStatus(pass, now) === "ACTIVE"
+            (pass) => getDisplayStatus(pass, now) === "ACTIVE"
         );
 
         const todayKey = getJakartaDay(now);
@@ -781,15 +850,16 @@ const Redemptions = () => {
                         matchesDate = false;
                     } else if (dateFilter === "TODAY") {
                         matchesDate =
-                            getJakartaDay(redeemedTime) ===
-                            todayKey;
+                            getJakartaDay(redeemedTime) === todayKey;
                     } else {
                         const days =
                             dateFilter === "7_DAYS" ? 7 : 30;
 
-                        const earliest = new Date(
-                            `${todayKey}T00:00:00+07:00`
-                        ).getTime() - (days - 1) * 86_400_000;
+                        const earliest =
+                            new Date(
+                                `${todayKey}T00:00:00+07:00`
+                            ).getTime() -
+                            (days - 1) * 86_400_000;
 
                         matchesDate =
                             redeemedTime >= earliest &&
@@ -847,20 +917,341 @@ const Redemptions = () => {
             (pass) => pass.id_health_pass === selectedPassId
         ) ?? null;
 
+    const finishPass =
+        passes.find(
+            (pass) => pass.id_health_pass === finishPassId
+        ) ?? null;
+
+    const resetOtpState = () => {
+        setOtpToken("");
+        setOtpCode("");
+        setOtpSent(false);
+        setOtpRecipient("");
+        setOtpExpiresAt(null);
+        setOtpSending(false);
+    };
+
+    const closeDetail = () => {
+        setSelectedPassId(null);
+    };
+
+    const openFinish = (pass: HealthPass) => {
+        if (
+            normalizeStatus(pass.status_health_pass) !==
+            "REDEEMED"
+        ) {
+            return;
+        }
+
+        setSelectedPassId(null);
+        setFinishPassId(pass.id_health_pass);
+
+        setDoctorNotes("");
+        setFinishError("");
+        setFinishSuccess("");
+
+        resetOtpState();
+        setNow(Date.now());
+    };
+
+    const closeFinish = () => {
+        if (finishing || otpSending) return;
+
+        setFinishPassId(null);
+        setDoctorNotes("");
+        setFinishError("");
+
+        resetOtpState();
+    };
+
+    const requestFinishOtp = async () => {
+        if (!finishPass || otpSending || finishing) {
+            return;
+        }
+
+        if (
+            normalizeStatus(finishPass.status_health_pass) !==
+            "REDEEMED"
+        ) {
+            setFinishError(
+                "Health Pass harus berstatus REDEEMED."
+            );
+            return;
+        }
+
+        const token = getProviderToken();
+
+        if (!token || isTokenExpired(token)) {
+            redirectToLogin();
+            return;
+        }
+
+        setOtpSending(true);
+        setFinishError("");
+
+        try {
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URI}/health-passes/provider/finish/${encodeURIComponent(
+                    finishPass.id_health_pass
+                )}/request-otp`,
+                {
+                    method: "POST",
+                    headers: {
+                        Accept: "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            const result =
+                await readApiResponse<FinishOtpResponse>(
+                    response
+                );
+
+            if (!response.ok || !result.success) {
+                throw new Error(
+                    result.message ||
+                    "Gagal mengirim kode OTP ke email pasien."
+                );
+            }
+
+            if (
+                !result.data ||
+                typeof result.data.otp_token !== "string" ||
+                !result.data.otp_token
+            ) {
+                throw new Error(
+                    "Response OTP tidak memiliki otp_token yang valid."
+                );
+            }
+
+            const expiresIn = Number(
+                result.data.expires_in_seconds
+            );
+
+            if (
+                !Number.isFinite(expiresIn) ||
+                expiresIn <= 0
+            ) {
+                throw new Error(
+                    "Masa berlaku OTP dari server tidak valid."
+                );
+            }
+
+            const timestamp = Date.now();
+
+            // Simpan JWT challenge hanya pada React state.
+            // Tidak menyimpan OTP asli atau token ke storage.
+            setOtpToken(result.data.otp_token);
+            setOtpCode("");
+            setOtpSent(true);
+
+            setOtpRecipient(
+                result.data.recipient_email_masked ||
+                finishPass.email_customer ||
+                "email pasien"
+            );
+
+            setOtpExpiresAt(
+                timestamp + expiresIn * 1000
+            );
+
+            setNow(timestamp);
+        } catch (error) {
+            setFinishError(
+                error instanceof Error
+                    ? error.message
+                    : "Gagal mengirim OTP."
+            );
+        } finally {
+            setOtpSending(false);
+        }
+    };
+
+    const finishTreatment = async () => {
+        if (!finishPass || finishing || otpSending) {
+            return;
+        }
+
+        if (
+            normalizeStatus(finishPass.status_health_pass) !==
+            "REDEEMED"
+        ) {
+            setFinishError(
+                "Health Pass harus berstatus REDEEMED."
+            );
+            return;
+        }
+
+        const notes = doctorNotes.trim();
+
+        if (!notes) {
+            setFinishError(
+                "Catatan treatment wajib diisi."
+            );
+            return;
+        }
+
+        if (notes.length > 10000) {
+            setFinishError(
+                "Catatan treatment maksimal 10.000 karakter."
+            );
+            return;
+        }
+
+        if (!otpSent || !otpToken) {
+            setFinishError(
+                "Kirim OTP ke email pasien terlebih dahulu."
+            );
+            return;
+        }
+
+        if (otpExpired || otpSecondsLeft <= 0) {
+            setFinishError(
+                "OTP sudah kedaluwarsa. Silakan kirim OTP baru."
+            );
+            return;
+        }
+
+        if (!/^\d{6}$/.test(otpCode)) {
+            setFinishError(
+                "Masukkan kode OTP 6 digit yang diterima pasien."
+            );
+            return;
+        }
+
+        const token = getProviderToken();
+
+        if (!token || isTokenExpired(token)) {
+            redirectToLogin();
+            return;
+        }
+
+        setFinishing(true);
+        setFinishError("");
+        setFinishSuccess("");
+
+        try {
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URI}/health-passes/provider/finish/${encodeURIComponent(
+                    finishPass.id_health_pass
+                )}`,
+                {
+                    method: "PATCH",
+                    headers: {
+                        Accept: "application/json",
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        doctor_notes: notes,
+                        otp: otpCode,
+                        otp_token: otpToken,
+                    }),
+                }
+            );
+
+            const result =
+                await readApiResponse<FinishResponse>(
+                    response
+                );
+
+            // Response 401 dapat berarti OTP tidak valid,
+            // bukan selalu access token provider expired.
+            if (
+                response.status === 401 &&
+                (!getProviderToken() ||
+                    isTokenExpired(getProviderToken() || ""))
+            ) {
+                redirectToLogin();
+                return;
+            }
+
+            if (
+                !response.ok ||
+                !result.success ||
+                normalizeStatus(
+                    result.data?.status_health_pass
+                ) !== "FINISHED"
+            ) {
+                throw new Error(
+                    result.message ||
+                    "Gagal menyelesaikan treatment."
+                );
+            }
+
+            setPasses((previous) =>
+                previous.map((pass) =>
+                    pass.id_health_pass ===
+                        finishPass.id_health_pass
+                        ? {
+                            ...pass,
+                            ...result.data,
+                            status_health_pass: "FINISHED",
+                        }
+                        : pass
+                )
+            );
+
+            setFinishSuccess(
+                `Treatment ${finishPass.id_health_pass} berhasil diselesaikan.`
+            );
+
+            setFinishPassId(null);
+            setDoctorNotes("");
+
+            resetOtpState();
+
+            setRefreshKey(
+                (previous) => previous + 1
+            );
+        } catch (error) {
+            setFinishError(
+                error instanceof Error
+                    ? error.message
+                    : "Gagal menyelesaikan treatment."
+            );
+        } finally {
+            setFinishing(false);
+        }
+    };
+
     const handleRefresh = () => {
         if (loading) return;
-        setRefreshKey((previous) => previous + 1);
+
+        setRefreshKey(
+            (previous) => previous + 1
+        );
     };
 
     const statusOptions: {
         label: string;
         value: StatusFilter;
     }[] = [
-            { label: "Sudah Digunakan", value: "REDEEMED" },
-            { label: "Semua", value: "ALL" },
-            { label: "Aktif", value: "ACTIVE" },
-            { label: "Kedaluwarsa", value: "EXPIRED" },
-            { label: "Lainnya", value: "OTHER" },
+            {
+                label: "Dalam Pelayanan",
+                value: "REDEEMED",
+            },
+            {
+                label: "Selesai Treatment",
+                value: "FINISHED",
+            },
+            {
+                label: "Semua",
+                value: "ALL",
+            },
+            {
+                label: "Aktif",
+                value: "ACTIVE",
+            },
+            {
+                label: "Kedaluwarsa",
+                value: "EXPIRED",
+            },
+            {
+                label: "Lainnya",
+                value: "OTHER",
+            },
         ];
 
     return (
@@ -877,8 +1268,8 @@ const Redemptions = () => {
                         </h1>
 
                         <p className="mt-2 text-sm text-slate-500">
-                            Riwayat penggunaan Health Pass customer
-                            untuk {providerName}.
+                            Riwayat penggunaan dan penyelesaian treatment
+                            Health Pass untuk {providerName}.
                         </p>
                     </div>
 
@@ -887,7 +1278,7 @@ const Redemptions = () => {
                             type="button"
                             onClick={handleRefresh}
                             disabled={loading}
-                            className="cursor-pointer flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                            className="flex cursor-pointer items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50"
                         >
                             <RefreshCw
                                 size={17}
@@ -905,7 +1296,7 @@ const Redemptions = () => {
                                     "/provider/scan-health-pass"
                                 )
                             }
-                            className="cursor-pointer flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700"
+                            className="flex cursor-pointer items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700"
                         >
                             <ScanLine size={18} />
                             Scan Health Pass
@@ -917,7 +1308,7 @@ const Redemptions = () => {
                     <SummaryCard
                         label="Total Redemptions"
                         value={formatNumber(summary.redeemed)}
-                        description="Health Pass yang sudah digunakan"
+                        description="Termasuk treatment selesai"
                         icon={CheckCircle2}
                         loading={loading}
                     />
@@ -941,14 +1332,15 @@ const Redemptions = () => {
                     <SummaryCard
                         label="Redemption Rate"
                         value={`${summary.rate.toFixed(1)}%`}
-                        description={`Dari ${formatNumber(summary.total)} Health Pass provider`}
+                        description={`Dari ${formatNumber(
+                            summary.total
+                        )} Health Pass provider`}
                         icon={Activity}
                         loading={loading}
                     />
                 </section>
 
                 <section className="overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-sm">
-                    {/* TABLE HEADER */}
                     <div className="border-b border-blue-100 p-5">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
@@ -984,7 +1376,7 @@ const Redemptions = () => {
                                             event.target.value
                                         )
                                     }
-                                    placeholder="Cari customer, layanan, ID pass..."
+                                    placeholder="Cari customer, guest, layanan, ID pass..."
                                     className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                                 />
                             </div>
@@ -997,17 +1389,20 @@ const Redemptions = () => {
                                         event.target.value as DateFilter
                                     )
                                 }
-                                className="cursor-pointer h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none focus:border-blue-400"
+                                className="h-11 cursor-pointer rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none focus:border-blue-400"
                             >
                                 <option value="ALL">
                                     Semua Waktu
                                 </option>
+
                                 <option value="TODAY">
                                     Hari Ini
                                 </option>
+
                                 <option value="7_DAYS">
                                     7 Hari Terakhir
                                 </option>
+
                                 <option value="30_DAYS">
                                     30 Hari Terakhir
                                 </option>
@@ -1026,7 +1421,7 @@ const Redemptions = () => {
                                     aria-pressed={
                                         statusFilter === option.value
                                     }
-                                    className={`cursor-pointer shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ${statusFilter === option.value
+                                    className={`shrink-0 cursor-pointer rounded-full border px-4 py-2 text-xs font-semibold transition ${statusFilter === option.value
                                         ? "border-blue-600 bg-blue-600 text-white"
                                         : "border-slate-200 bg-white text-slate-500 hover:border-blue-300"
                                         }`}
@@ -1115,21 +1510,27 @@ const Redemptions = () => {
                                                 <th className="px-5 py-4">
                                                     Health Pass
                                                 </th>
+
                                                 <th className="px-4 py-4">
-                                                    Customer
+                                                    Customer / Guest
                                                 </th>
+
                                                 <th className="px-4 py-4">
                                                     Layanan
                                                 </th>
+
                                                 <th className="px-4 py-4">
                                                     Status
                                                 </th>
+
                                                 <th className="px-4 py-4">
                                                     Waktu Redeem
                                                 </th>
+
                                                 <th className="px-4 py-4">
                                                     Redeemed By
                                                 </th>
+
                                                 <th className="px-4 py-4 text-right">
                                                     Aksi
                                                 </th>
@@ -1139,10 +1540,7 @@ const Redemptions = () => {
                                         <tbody className="divide-y divide-slate-100">
                                             {paginatedPasses.map((pass) => {
                                                 const displayStatus =
-                                                    getDisplayStatus(
-                                                        pass,
-                                                        now
-                                                    );
+                                                    getDisplayStatus(pass, now);
 
                                                 return (
                                                     <tr
@@ -1158,7 +1556,11 @@ const Redemptions = () => {
                                                             </p>
 
                                                             <p className="mt-1 text-[11px] text-slate-400">
-                                                                Order: {pass.id_order?.slice(0, 8)}...
+                                                                Order:{" "}
+                                                                {String(
+                                                                    pass.id_order
+                                                                ).slice(0, 8)}
+                                                                ...
                                                             </p>
                                                         </td>
 
@@ -1170,6 +1572,13 @@ const Redemptions = () => {
                                                             <p className="mt-1 max-w-37.5 truncate text-xs text-slate-500">
                                                                 {pass.email_customer || "-"}
                                                             </p>
+
+                                                            {pass.recipient_type ===
+                                                                "GUEST" && (
+                                                                    <span className="mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                                                        Guest
+                                                                    </span>
+                                                                )}
                                                         </td>
 
                                                         <td className="px-4 py-4">
@@ -1178,7 +1587,9 @@ const Redemptions = () => {
                                                             </p>
 
                                                             <p className="mt-1 text-xs text-slate-500">
-                                                                {formatRupiah(pass.price_service)}
+                                                                {formatRupiah(
+                                                                    pass.price_service
+                                                                )}
                                                             </p>
                                                         </td>
 
@@ -1190,29 +1601,51 @@ const Redemptions = () => {
 
                                                         <td className="px-4 py-4">
                                                             <p className="whitespace-nowrap text-xs text-slate-700">
-                                                                {formatDate(pass.redeemed_at)}
+                                                                {formatDate(
+                                                                    pass.redeemed_at
+                                                                )}
                                                             </p>
                                                         </td>
 
                                                         <td className="px-4 py-4">
                                                             <p className="text-xs font-medium text-slate-700">
-                                                                {getRedeemedByName(pass.redeemed_by)}
+                                                                {getRedeemedByName(
+                                                                    pass.redeemed_by
+                                                                )}
                                                             </p>
                                                         </td>
 
-                                                        <td className="px-4 py-4 text-right">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    setSelectedPassId(
-                                                                        pass.id_health_pass
-                                                                    )
-                                                                }
-                                                                className="cursor-pointer inline-flex items-center gap-2 rounded-lg border border-blue-200 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50"
-                                                            >
-                                                                <Eye size={15} />
-                                                                Detail
-                                                            </button>
+                                                        <td className="px-4 py-4">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        setSelectedPassId(
+                                                                            pass.id_health_pass
+                                                                        )
+                                                                    }
+                                                                    className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg border border-blue-200 px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50"
+                                                                >
+                                                                    <Eye size={15} />
+                                                                    Detail
+                                                                </button>
+
+                                                                {displayStatus ===
+                                                                    "REDEEMED" && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                openFinish(pass)
+                                                                            }
+                                                                            className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                                                                        >
+                                                                            <ClipboardCheck
+                                                                                size={15}
+                                                                            />
+                                                                            Finish Treatment
+                                                                        </button>
+                                                                    )}
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 );
@@ -1225,10 +1658,7 @@ const Redemptions = () => {
                                 <div className="space-y-3 p-4 lg:hidden">
                                     {paginatedPasses.map((pass) => {
                                         const displayStatus =
-                                            getDisplayStatus(
-                                                pass,
-                                                now
-                                            );
+                                            getDisplayStatus(pass, now);
 
                                         return (
                                             <article
@@ -1265,7 +1695,9 @@ const Redemptions = () => {
                                                     </p>
 
                                                     <p className="mt-1 text-sm font-semibold text-slate-800">
-                                                        {getRedeemedByName(pass.redeemed_by)}
+                                                        {getRedeemedByName(
+                                                            pass.redeemed_by
+                                                        )}
                                                     </p>
                                                 </div>
 
@@ -1274,18 +1706,36 @@ const Redemptions = () => {
                                                         {pass.id_health_pass}
                                                     </p>
 
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            setSelectedPassId(
-                                                                pass.id_health_pass
-                                                            )
-                                                        }
-                                                        className="flex items-center gap-1 rounded-xl bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-700"
-                                                    >
-                                                        Detail
-                                                        <ChevronRight size={15} />
-                                                    </button>
+                                                    <div className="flex flex-wrap justify-end gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setSelectedPassId(
+                                                                    pass.id_health_pass
+                                                                )
+                                                            }
+                                                            className="flex items-center gap-1 rounded-xl bg-blue-50 px-3 py-2.5 text-xs font-bold text-blue-700"
+                                                        >
+                                                            Detail
+                                                            <ChevronRight size={15} />
+                                                        </button>
+
+                                                        {displayStatus ===
+                                                            "REDEEMED" && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        openFinish(pass)
+                                                                    }
+                                                                    className="flex items-center gap-1 rounded-xl bg-blue-600 px-3 py-2.5 text-xs font-bold text-white"
+                                                                >
+                                                                    <ClipboardCheck
+                                                                        size={15}
+                                                                    />
+                                                                    Finish Treatment
+                                                                </button>
+                                                            )}
+                                                    </div>
                                                 </div>
                                             </article>
                                         );
@@ -1334,7 +1784,9 @@ const Redemptions = () => {
                                                     )
                                                 )
                                             }
-                                            disabled={currentPage >= totalPages}
+                                            disabled={
+                                                currentPage >= totalPages
+                                            }
                                             aria-label="Halaman berikutnya"
                                             className="rounded-lg border border-slate-200 p-2 text-slate-700 disabled:opacity-40"
                                         >
@@ -1347,20 +1799,48 @@ const Redemptions = () => {
                 </section>
             </div>
 
+            {finishSuccess && !finishPass && (
+                <div
+                    role="status"
+                    className="fixed bottom-5 right-5 z-110 max-w-sm rounded-xl border border-emerald-200 bg-white p-4 text-sm font-semibold text-emerald-700 shadow-xl"
+                >
+                    <div className="flex items-start gap-3">
+                        <CheckCircle2
+                            size={19}
+                            className="shrink-0"
+                        />
+
+                        <span>{finishSuccess}</span>
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setFinishSuccess("")
+                            }
+                            aria-label="Tutup notifikasi"
+                        >
+                            <X size={17} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {selectedPass && (
                 <div
                     role="presentation"
                     className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/60 p-4"
-                    onClick={() => setSelectedPassId(null)}
+                    onClick={closeDetail}
                 >
                     <div
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="redemption-detail-title"
-                        onClick={(event) => event.stopPropagation()}
+                        onClick={(event) =>
+                            event.stopPropagation()
+                        }
                         className="max-h-[90dvh] w-full max-w-140 overflow-y-auto rounded-3xl bg-white shadow-2xl"
                     >
-                        {/* MODAL HEADER */}
+                        {/* HEADER */}
                         <div className="flex items-start justify-between gap-3 border-b border-blue-100 bg-blue-50 p-5">
                             <div>
                                 <h2
@@ -1371,13 +1851,13 @@ const Redemptions = () => {
                                 </h2>
 
                                 <p className="mt-1 text-xs text-blue-700">
-                                    Informasi penggunaan layanan customer
+                                    Informasi penggunaan layanan
                                 </p>
                             </div>
 
                             <button
                                 type="button"
-                                onClick={() => setSelectedPassId(null)}
+                                onClick={closeDetail}
                                 aria-label="Tutup detail"
                                 className="cursor-pointer rounded-full bg-white p-2 text-slate-500"
                             >
@@ -1385,7 +1865,7 @@ const Redemptions = () => {
                             </button>
                         </div>
 
-                        {/* MODAL CONTENT */}
+                        {/* CONTENT */}
                         <div className="space-y-5 p-5">
                             {/* SERVICE */}
                             <div className="flex gap-3 rounded-2xl border border-blue-100 p-4">
@@ -1393,7 +1873,10 @@ const Redemptions = () => {
                                     {selectedPass.image_service ? (
                                         <img
                                             src={selectedPass.image_service}
-                                            alt={selectedPass.name_service || "Layanan"}
+                                            alt={
+                                                selectedPass.name_service ||
+                                                "Layanan"
+                                            }
                                             className="h-full w-full object-cover"
                                         />
                                     ) : (
@@ -1410,11 +1893,14 @@ const Redemptions = () => {
                                     </p>
 
                                     <p className="mt-1 text-xs text-slate-500">
-                                        {selectedPass.name_provider || providerName}
+                                        {selectedPass.name_provider ||
+                                            providerName}
                                     </p>
 
                                     <p className="mt-2 font-bold text-blue-600">
-                                        {formatRupiah(selectedPass.price_service)}
+                                        {formatRupiah(
+                                            selectedPass.price_service
+                                        )}
                                     </p>
 
                                     <div className="mt-2">
@@ -1428,34 +1914,36 @@ const Redemptions = () => {
                                 </div>
                             </div>
 
-                            {/* CUSTOMER DETAILS */}
+                            {/* RECIPIENT */}
                             <section>
                                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                                     <h3 className="text-sm font-bold text-slate-900">
-                                        Informasi Customer
+                                        Informasi Penerima Layanan
                                     </h3>
 
-                                    {/* RECIPIENT TYPE */}
                                     <span
-                                        className={`inline-flex rounded-full px-3 py-1.5 text-[11px] font-bold ${selectedPass.recipient_type === "GUEST"
+                                        className={`inline-flex rounded-full px-3 py-1.5 text-[11px] font-bold ${selectedPass.recipient_type ===
+                                            "GUEST"
                                             ? "bg-amber-50 text-amber-700"
                                             : "bg-blue-50 text-blue-700"
                                             }`}
                                     >
-                                        {selectedPass.recipient_type === "GUEST"
+                                        {selectedPass.recipient_type ===
+                                            "GUEST"
                                             ? "Guest / Orang Lain"
-                                            : selectedPass.recipient_type === "CUSTOMER"
+                                            : selectedPass.recipient_type ===
+                                                "CUSTOMER"
                                                 ? "Customer / Diri Sendiri"
                                                 : "Penerima Layanan"}
                                     </span>
                                 </div>
 
                                 <div className="rounded-xl bg-slate-50 p-4">
-                                    {/* NAME */}
                                     <DetailRow
                                         icon={UserRound}
                                         label={
-                                            selectedPass.recipient_type === "GUEST"
+                                            selectedPass.recipient_type ===
+                                                "GUEST"
                                                 ? "Nama Guest"
                                                 : "Nama Customer"
                                         }
@@ -1464,7 +1952,6 @@ const Redemptions = () => {
                                         }
                                     />
 
-                                    {/* EMAIL */}
                                     <DetailRow
                                         icon={Mail}
                                         label="Email"
@@ -1473,45 +1960,45 @@ const Redemptions = () => {
                                         }
                                     />
 
-                                    {/* PHONE NUMBER */}
                                     <DetailRow
                                         icon={Phone}
                                         label="Nomor Telepon"
                                         value={
-                                            selectedPass.phone_number_customer || "-"
+                                            selectedPass.phone_number_customer ||
+                                            "-"
                                         }
                                     />
 
-                                    {/* DATE OF BIRTH - CUSTOMER ONLY */}
-                                    {selectedPass.recipient_type === "CUSTOMER" && (
-                                        <DetailRow
-                                            icon={CalendarDays}
-                                            label="Tanggal Lahir (DOB)"
-                                            value={formatDateOfBirth(
-                                                selectedPass.dob_customer
-                                            )}
-                                        />
-                                    )}
+                                    {selectedPass.recipient_type ===
+                                        "CUSTOMER" && (
+                                            <DetailRow
+                                                icon={CalendarDays}
+                                                label="Tanggal Lahir (DOB)"
+                                                value={formatDateOfBirth(
+                                                    selectedPass.dob_customer
+                                                )}
+                                            />
+                                        )}
                                 </div>
 
-                                {/* INFORMATION */}
-                                {selectedPass.recipient_type === "GUEST" && (
-                                    <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 p-3">
-                                        <UserRound
-                                            size={17}
-                                            className="mt-0.5 shrink-0 text-amber-600"
-                                        />
+                                {selectedPass.recipient_type ===
+                                    "GUEST" && (
+                                        <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 p-3">
+                                            <UserRound
+                                                size={17}
+                                                className="mt-0.5 shrink-0 text-amber-600"
+                                            />
 
-                                        <p className="text-xs leading-5 text-amber-700">
-                                            Health Pass ini digunakan oleh guest
-                                            atau orang lain yang didaftarkan
-                                            oleh customer.
-                                        </p>
-                                    </div>
-                                )}
+                                            <p className="text-xs leading-5 text-amber-700">
+                                                Health Pass ini digunakan oleh
+                                                guest atau orang lain yang
+                                                didaftarkan oleh customer.
+                                            </p>
+                                        </div>
+                                    )}
                             </section>
 
-                            {/* HEALTH PASS DETAILS */}
+                            {/* HEALTH PASS */}
                             <section>
                                 <h3 className="mb-3 text-sm font-bold text-slate-900">
                                     Informasi Health Pass
@@ -1527,30 +2014,38 @@ const Redemptions = () => {
                                     <DetailRow
                                         icon={Ticket}
                                         label="ID Order"
-                                        value={selectedPass.id_order}
+                                        value={String(
+                                            selectedPass.id_order
+                                        )}
                                     />
 
                                     <DetailRow
                                         icon={CalendarDays}
                                         label="Jadwal Booking"
-                                        value={formatDate(selectedPass.booking_at)}
+                                        value={formatDate(
+                                            selectedPass.booking_at
+                                        )}
                                     />
 
                                     <DetailRow
                                         icon={Clock3}
                                         label="Berlaku Mulai"
-                                        value={formatDate(selectedPass.valid_from)}
+                                        value={formatDate(
+                                            selectedPass.valid_from
+                                        )}
                                     />
 
                                     <DetailRow
                                         icon={Clock3}
                                         label="Berlaku Sampai"
-                                        value={formatDate(selectedPass.valid_until)}
+                                        value={formatDate(
+                                            selectedPass.valid_until
+                                        )}
                                     />
                                 </div>
                             </section>
 
-                            {/* REDEMPTION DETAILS */}
+                            {/* REDEMPTION */}
                             <section>
                                 <h3 className="mb-3 text-sm font-bold text-slate-900">
                                     Informasi Redemption
@@ -1560,30 +2055,484 @@ const Redemptions = () => {
                                     <DetailRow
                                         icon={CheckCircle2}
                                         label="Waktu Redeem"
-                                        value={formatDate(selectedPass.redeemed_at)}
+                                        value={formatDate(
+                                            selectedPass.redeemed_at
+                                        )}
                                     />
 
                                     <DetailRow
                                         icon={ShieldCheck}
                                         label="Redeemed By"
-                                        value={getRedeemedByName(selectedPass.redeemed_by)}
+                                        value={getRedeemedByName(
+                                            selectedPass.redeemed_by
+                                        )}
                                     />
 
                                     <DetailRow
                                         icon={Building2}
                                         label="Provider"
-                                        value={selectedPass.name_provider || providerName}
+                                        value={
+                                            selectedPass.name_provider ||
+                                            providerName
+                                        }
                                     />
                                 </div>
                             </section>
 
+                            {/* FINISHED DETAILS */}
+                            {selectedPass.finished_at && (
+                                <section>
+                                    <h3 className="mb-3 text-sm font-bold text-slate-900">
+                                        Penyelesaian Treatment
+                                    </h3>
+
+                                    <div className="rounded-xl bg-emerald-50 p-4">
+                                        <DetailRow
+                                            icon={CalendarDays}
+                                            label="Waktu Selesai"
+                                            value={formatDate(
+                                                selectedPass.finished_at
+                                            )}
+                                        />
+
+                                        <DetailRow
+                                            icon={ShieldCheck}
+                                            label="Diselesaikan Oleh"
+                                            value={getRedeemedByName(
+                                                selectedPass.finished_by ??
+                                                null
+                                            )}
+                                        />
+                                    </div>
+
+                                    {selectedPass.doctor_notes && (
+                                        <div className="mt-3 rounded-xl border border-slate-200 p-4">
+                                            <p className="text-xs font-semibold text-slate-500">
+                                                Catatan Treatment
+                                            </p>
+
+                                            <p className="mt-2 whitespace-pre-wrap wrap-break-word text-sm text-slate-800">
+                                                {selectedPass.doctor_notes}
+                                            </p>
+                                        </div>
+                                    )}
+                                </section>
+                            )}
+
+                            {/* ACTION */}
+                            {normalizeStatus(
+                                selectedPass.status_health_pass
+                            ) === "REDEEMED" && (
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            openFinish(selectedPass)
+                                        }
+                                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700"
+                                    >
+                                        <ClipboardCheck size={18} />
+                                        Finish Treatment
+                                    </button>
+                                )}
+
                             <button
                                 type="button"
-                                onClick={() => setSelectedPassId(null)}
-                                className="cursor-pointer w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700"
+                                onClick={closeDetail}
+                                className="w-full cursor-pointer rounded-xl border border-blue-200 bg-white px-5 py-3 text-sm font-bold text-blue-700 hover:bg-blue-50"
                             >
                                 Tutup
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {finishPass && (
+                <div
+                    role="presentation"
+                    className="fixed inset-0 z-110 flex items-center justify-center bg-slate-950/60 p-4"
+                    onClick={closeFinish}
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="finish-treatment-title"
+                        onClick={(event) =>
+                            event.stopPropagation()
+                        }
+                        className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white shadow-2xl"
+                    >
+                        {/* MODAL HEADER */}
+                        <div className="flex items-start justify-between gap-3 border-b border-blue-100 bg-blue-50 px-6 py-5">
+                            <div>
+                                <h2
+                                    id="finish-treatment-title"
+                                    className="flex items-center gap-2 text-lg font-bold text-slate-900"
+                                >
+                                    <ClipboardCheck
+                                        size={22}
+                                        className="text-blue-600"
+                                    />
+                                    Selesaikan Treatment
+                                </h2>
+
+                                <p className="mt-1 text-xs text-blue-700">
+                                    Verifikasi OTP pasien sebelum
+                                    mengubah status menjadi FINISHED
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                disabled={finishing || otpSending}
+                                onClick={closeFinish}
+                                aria-label="Tutup modal"
+                                className="cursor-pointer rounded-full bg-white p-2 text-slate-500 disabled:opacity-50"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* MODAL CONTENT */}
+                        <div className="space-y-5 p-6">
+                            {/* HEALTH PASS INFO */}
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <p className="break-all text-xs font-semibold text-blue-700">
+                                    {finishPass.id_health_pass}
+                                </p>
+
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-bold text-slate-900">
+                                        {finishPass.name_customer || "-"}
+                                    </p>
+
+                                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                                        {finishPass.recipient_type ===
+                                            "GUEST"
+                                            ? "GUEST"
+                                            : "CUSTOMER"}
+                                    </span>
+                                </div>
+
+                                <p className="mt-1 text-sm text-slate-600">
+                                    {finishPass.name_service || "-"}
+                                </p>
+
+                                <p className="mt-2 text-xs text-slate-500">
+                                    Redeemed:{" "}
+                                    {formatDate(
+                                        finishPass.redeemed_at
+                                    )}
+                                </p>
+                            </div>
+
+                            {/* OTP SECTION */}
+                            <section className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+                                        <LockKeyhole size={21} />
+                                    </div>
+
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="text-sm font-bold text-slate-900">
+                                            Verifikasi OTP Pasien
+                                        </h3>
+
+                                        <p className="mt-1 text-xs leading-5 text-slate-600">
+                                            Untuk mencegah penyelesaian
+                                            treatment tanpa persetujuan
+                                            pasien, sistem akan mengirim
+                                            kode OTP ke email penerima
+                                            layanan.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 rounded-xl border border-blue-100 bg-white p-3">
+                                    <p className="text-xs text-slate-500">
+                                        Email tujuan OTP
+                                    </p>
+
+                                    <div className="mt-1 flex items-center gap-2">
+                                        <Mail
+                                            size={16}
+                                            className="shrink-0 text-blue-600"
+                                        />
+
+                                        <p className="min-w-0 break-all text-sm font-semibold text-slate-800">
+                                            {finishPass.email_customer ||
+                                                "Email tidak tersedia"}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* STEP 1: REQUEST OTP */}
+                                {!otpSent && (
+                                    <div className="mt-4">
+                                        <button
+                                            type="button"
+                                            disabled={
+                                                otpSending ||
+                                                finishing ||
+                                                !finishPass.email_customer
+                                            }
+                                            onClick={() =>
+                                                void requestFinishOtp()
+                                            }
+                                            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            {otpSending ? (
+                                                <Loader2
+                                                    size={17}
+                                                    className="animate-spin"
+                                                />
+                                            ) : (
+                                                <Send size={17} />
+                                            )}
+
+                                            {otpSending
+                                                ? "Mengirim OTP..."
+                                                : "Kirim OTP ke Email Pasien"}
+                                        </button>
+
+                                        <p className="mt-3 text-center text-xs leading-5 text-slate-500">
+                                            Pastikan treatment sudah selesai
+                                            sebelum meminta pasien
+                                            memberikan kode OTP.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* STEP 2: VERIFY OTP */}
+                                {otpSent && (
+                                    <div className="mt-4 space-y-4">
+                                        <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                                            <CheckCircle2
+                                                size={18}
+                                                className="mt-0.5 shrink-0 text-emerald-600"
+                                            />
+
+                                            <div>
+                                                <p className="text-sm font-bold text-emerald-800">
+                                                    OTP Berhasil Dikirim
+                                                </p>
+
+                                                <p className="mt-1 break-all text-xs text-emerald-700">
+                                                    Kode telah dikirim ke{" "}
+                                                    {otpRecipient}.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label
+                                                htmlFor="finish-otp-code"
+                                                className="flex items-center gap-2 text-sm font-bold text-slate-800"
+                                            >
+                                                <KeyRound size={17} />
+                                                Kode OTP
+                                                <span className="text-red-600">
+                                                    *
+                                                </span>
+                                            </label>
+
+                                            <p className="mt-1 text-xs text-slate-500">
+                                                Minta pasien memberikan kode
+                                                enam digit setelah memastikan
+                                                treatment selesai.
+                                            </p>
+
+                                            <input
+                                                id="finish-otp-code"
+                                                type="text"
+                                                inputMode="numeric"
+                                                autoComplete="one-time-code"
+                                                maxLength={6}
+                                                value={otpCode}
+                                                disabled={
+                                                    finishing || otpExpired
+                                                }
+                                                onChange={(event) => {
+                                                    const value =
+                                                        event.target.value
+                                                            .replace(/\D/g, "")
+                                                            .slice(0, 6);
+
+                                                    setOtpCode(value);
+                                                    setFinishError("");
+                                                }}
+                                                placeholder="000000"
+                                                className="mt-3 h-14 w-full rounded-xl border border-slate-200 bg-white px-4 text-center text-2xl font-bold tracking-[0.35em] text-slate-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div
+                                                className={`flex items-center gap-2 text-xs font-semibold ${otpExpired
+                                                    ? "text-red-600"
+                                                    : "text-blue-700"
+                                                    }`}
+                                            >
+                                                <Clock3 size={15} />
+
+                                                {otpExpired
+                                                    ? "OTP kedaluwarsa"
+                                                    : `Berlaku ${String(
+                                                        Math.floor(
+                                                            otpSecondsLeft / 60
+                                                        )
+                                                    ).padStart(2, "0")}:${String(
+                                                        otpSecondsLeft % 60
+                                                    ).padStart(2, "0")}`}
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                disabled={
+                                                    otpSending || finishing
+                                                }
+                                                onClick={() =>
+                                                    void requestFinishOtp()
+                                                }
+                                                className="flex cursor-pointer items-center gap-1.5 text-xs font-bold text-blue-700 hover:text-blue-900 disabled:opacity-50"
+                                            >
+                                                {otpSending ? (
+                                                    <Loader2
+                                                        size={14}
+                                                        className="animate-spin"
+                                                    />
+                                                ) : (
+                                                    <RotateCw size={14} />
+                                                )}
+                                                Kirim Ulang OTP
+                                            </button>
+                                        </div>
+
+                                        {otpExpired && (
+                                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+                                                Kode OTP telah melewati batas
+                                                waktu lima menit. Silakan
+                                                kirim OTP baru untuk
+                                                melanjutkan.
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </section>
+
+                            {/* DOCTOR NOTES */}
+                            <section>
+                                <label
+                                    htmlFor="finish-doctor-notes"
+                                    className="flex items-center gap-2 text-sm font-bold text-slate-800"
+                                >
+                                    <FileText size={17} />
+                                    Catatan Treatment
+                                    <span className="text-red-600">
+                                        *
+                                    </span>
+                                </label>
+
+                                <p className="mt-1 text-xs text-slate-500">
+                                    Isi catatan penyelesaian pelayanan
+                                    (maksimal 10.000 karakter).
+                                </p>
+
+                                <textarea
+                                    id="finish-doctor-notes"
+                                    rows={5}
+                                    maxLength={10000}
+                                    value={doctorNotes}
+                                    disabled={finishing}
+                                    onChange={(event) => {
+                                        setDoctorNotes(
+                                            event.target.value
+                                        );
+                                        setFinishError("");
+                                    }}
+                                    placeholder="Tuliskan tindakan dan informasi penyelesaian treatment..."
+                                    className="mt-3 w-full resize-y rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
+                                />
+
+                                <p className="mt-1 text-right text-xs text-slate-400">
+                                    {doctorNotes.length.toLocaleString(
+                                        "id-ID"
+                                    )}
+                                    /10.000
+                                </p>
+                            </section>
+
+                            {/* INFORMATION */}
+                            <div className="flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 p-3">
+                                <ShieldCheck
+                                    size={17}
+                                    className="mt-0.5 shrink-0 text-amber-600"
+                                />
+
+                                <p className="text-xs leading-5 text-amber-800">
+                                    Konfirmasi FINISHED hanya dapat
+                                    dilakukan setelah OTP pasien valid
+                                    dan catatan treatment sudah diisi.
+                                    Pastikan tindakan memang telah
+                                    selesai sebelum meminta OTP.
+                                </p>
+                            </div>
+
+                            {/* ERROR */}
+                            {finishError && (
+                                <div
+                                    role="alert"
+                                    className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                                >
+                                    <AlertCircle
+                                        size={17}
+                                        className="mt-0.5 shrink-0"
+                                    />
+
+                                    <p>{finishError}</p>
+                                </div>
+                            )}
+
+                            {/* ACTIONS */}
+                            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                                <button
+                                    type="button"
+                                    disabled={
+                                        finishing || otpSending
+                                    }
+                                    onClick={closeFinish}
+                                    className="flex-1 cursor-pointer rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                    Batal
+                                </button>
+
+                                <button
+                                    type="button"
+                                    disabled={
+                                        finishing ||
+                                        otpSending ||
+                                        !doctorNotes.trim() ||
+                                        !otpValid
+                                    }
+                                    onClick={() =>
+                                        void finishTreatment()
+                                    }
+                                    className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {finishing ? (
+                                        <Loader2
+                                            size={17}
+                                            className="animate-spin"
+                                        />
+                                    ) : (
+                                        <CheckCircle2 size={17} />
+                                    )}
+
+                                    {finishing
+                                        ? "Memverifikasi..."
+                                        : "Konfirmasi FINISHED"}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

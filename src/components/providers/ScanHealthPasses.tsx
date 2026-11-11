@@ -1151,8 +1151,21 @@ const ScanHealthPasses = () => {
 
                         <p className="mt-3 text-sm leading-6 text-slate-500">
                             {successMessage ||
-                                "Health Pass berhasil digunakan."}
+                                "Health Pass berhasil diredeem."}
                         </p>
+
+                        <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-left">
+                            <p className="text-sm font-semibold text-blue-800">
+                                Treatment Siap Dilakukan
+                            </p>
+
+                            <p className="mt-1 text-xs leading-5 text-blue-700">
+                                Health Pass sudah berstatus REDEEMED.
+                                Silakan lakukan treatment kepada pasien.
+                                Setelah pelayanan selesai, perbarui status
+                                menjadi FINISHED melalui halaman Redemptions.
+                            </p>
+                        </div>
 
                         <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-left">
                             <p className="text-xs text-slate-400">

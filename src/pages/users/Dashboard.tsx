@@ -27,6 +27,7 @@ import {
     X,
     ChevronDown,
     LoaderCircle,
+    Ticket,
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
@@ -113,6 +114,12 @@ const menuGroups: MenuGroup[] = [
                 label: "Pesanan",
                 path: "/user/orders",
                 icon: ShoppingCart,
+                enabled: true,
+            },
+            {
+                label: "Health Pass",
+                path: "/user/health-pass",
+                icon: Ticket,
                 enabled: true,
             },
         ],
